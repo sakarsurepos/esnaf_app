@@ -1,0 +1,29 @@
+# Esnaf Müşteri Uygulaması Todo Listesi Kuralları
+
+## Görev Durumu İşaretleme Kuralları
+
+- `[ ]` - Beklemede: Henüz başlanmamış veya durumu belirlenmemiş görev
+- `[x]` - Tamamlandı: Tamamen bitirilmiş ve test edilmiş görev
+- `[t]` - Yapılacak: Aktif çalışma listesine alınmış, yapılması planlanan görev
+- `[1]` - 1. Öncelikli: Acil olarak tamamlanması gereken, yüksek öncelikli görev
+- `[2]` - 2. Öncelikli: Önemli ama birinci öncelik kadar acil olmayan görev
+- `[p]` - Pass (Geçildi): Şu an için ertelenen veya atlanması kararlaştırılan görev
+
+## Görev Düzenleme Kuralları
+
+1. Her görev bir tire (-) ile başlar ve bir görev durumu işareti (`[ ]`, `[x]`, vb.) içerir
+2. Görev numarası özgün bir şekilde ana kategori ve alt görev numarasını içerir (örn: 1.2, 3.5)
+3. Görev tamamlandığında işaret `[x]` olarak güncellenir
+4. Her görevin yanına gerektiğinde yorum veya açıklama eklenebilir
+
+## Dosya Düzeni
+
+- Her ana başlık için ayrı Markdown dosyası oluşturulmuştur
+- Her dosya, ilgili ana başlığın adıyla başlar ve alt görevleri listeler
+- Ana README.md dosyası tüm görevlere linkler içerir ve genel durumu özetler
+
+## İlerleme Takibi
+
+- Haftalık ilerleme toplantılarında öncelikler gözden geçirilir
+- Tamamlanan görevler README.md içindeki ilerleme bölümünde güncellenir
+- İlerleme yüzdesi, tamamlanan görevlerin toplam görev sayısına oranıdır 

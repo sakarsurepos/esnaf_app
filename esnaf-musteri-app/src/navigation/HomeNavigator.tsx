@@ -7,9 +7,10 @@ import HomeScreen from '../screens/home/HomeScreen';
 import SearchScreen from '../screens/search/SearchScreen';
 import BusinessDetailsScreen from '../screens/business/BusinessDetailsScreen';
 // import ServiceDetailsScreen from '../screens/service/ServiceDetailsScreen';
-// import AppointmentScreen from '../screens/appointment/AppointmentScreen';
-// import ProfileScreen from '../screens/profile/ProfileScreen';
-// import EditProfileScreen from '../screens/profile/EditProfileScreen';
+import AppointmentScreen from '../screens/appointment/AppointmentScreen';
+import ProfileScreen from '../screens/profile/ProfileScreen';
+import EditProfileScreen from '../screens/profile/EditProfileScreen';
+import AddressManagementScreen from '../screens/profile/AddressManagementScreen';
 // import NotificationsScreen from '../screens/notifications/NotificationsScreen';
 // import SettingsScreen from '../screens/settings/SettingsScreen';
 
@@ -68,18 +69,26 @@ const HomeNavigator = () => {
       />
       <Stack.Screen 
         name="Appointment"
-        component={PlaceholderScreen}
-        options={{ title: 'Randevu Al' }}
+        component={AppointmentScreen}
+        options={{ 
+          title: 'Randevu Al',
+          headerShown: true,
+        }}
       />
       <Stack.Screen 
         name="Profile"
-        component={PlaceholderScreen}
+        component={ProfileScreen}
         options={{ title: 'Profil' }}
       />
       <Stack.Screen 
         name="EditProfile"
-        component={PlaceholderScreen}
+        component={EditProfileScreen}
         options={{ title: 'Profil Düzenle' }}
+      />
+      <Stack.Screen 
+        name="AddressManagement"
+        component={AddressManagementScreen}
+        options={{ title: 'Adreslerim' }}
       />
       <Stack.Screen 
         name="Notifications"

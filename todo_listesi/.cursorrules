@@ -27,3 +27,35 @@
 - Haftalık ilerleme toplantılarında öncelikler gözden geçirilir
 - Tamamlanan görevler README.md içindeki ilerleme bölümünde güncellenir
 - İlerleme yüzdesi, tamamlanan görevlerin toplam görev sayısına oranıdır 
+
+## Örnek Veri ve Model Dosyaları Kuralları
+
+1. Her veritabanı tablosu için `src/models/[tablo_adı]/sample.ts` şeklinde örnek veri dosyası oluşturulmalıdır
+2. Örnek veri dosyaları daima Supabase tiplerini (veya henüz oluşturulmamış tablolar için özel arayüzleri) kullanmalıdır
+3. Her örnek veri dosyası şu formatı takip etmelidir:
+   - Gerekli tiplerin import edilmesi
+   - Açıklayıcı yorumlar
+   - İlgili tablonun tüm alanlarını kapsayan gerçekçi örnek veriler
+   - Farklı kullanıcılar ve senaryolar için çeşitli örnek kayıtlar
+4. `src/models/index.ts` dosyasında tüm örnek verilerin tek bir noktadan export edilmesi sağlanmalıdır
+5. Henüz Supabase'de karşılığı olmayan tablo yapıları için custom arayüzler oluşturulmalı ve yorumlarla belgelenmelidir
+6. Mock data modu etkinken örnek verilerin kullanılması, gerçek veritabanı modunda ise ilgili API çağrılarının yapılması sağlanmalıdır 
+
+## Görev Tamamlama Dokümantasyonu Kuralları
+
+1. Tamamlanan her görev dosyasına aşağıdaki bölümler eklenmelidir:
+   - **Durum**: Tamamlanma durumu ve genel açıklama, ✅ **Tamamlandı** formatıyla başlayan kapsamlı bir paragraf
+   - **Yapılan Geliştirmeler**: Alt başlıklarla kategorize edilmiş detaylı geliştirme listesi:
+     - Veri Modelleri ve Servisler
+     - Arayüz Geliştirmeleri
+     - İş Mantığı
+     - Veri Yükleme ve Entegrasyonlar
+   - **Sağlanan Fonksiyonlar**: Son kullanıcıya sağlanan yeni yetenekler ve faydalar
+
+2. Her görev tamamlama dokümantasyonu şu prensipleri izlemelidir:
+   - Kısa madde işaretli maddeler halinde açık ve net açıklamalar
+   - Kullanılan teknolojiler ve önemli bileşenlere referanslar
+   - Gelecekte yapılması planlanan geliştirmelere notlar
+   - Bilinmesi gereken kısıtlamalar veya bilinen sorunlar (varsa)
+
+3. Görev tamamlandığında görev dosyasının en üstünde açık bir şekilde tamamlanma durumu belirtilmeli ve her alt görev maddesi işaretlenir 

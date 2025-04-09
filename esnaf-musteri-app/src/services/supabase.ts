@@ -1,20 +1,39 @@
-import { createClient } from '@supabase/supabase-js';
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from '@env';
-import 'react-native-url-polyfill/auto';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Database } from '../types/supabase';
 
-// Supabase projesinin URL ve anonim API anahtarı
-const supabaseUrl = SUPABASE_URL;
-const supabaseAnonKey = SUPABASE_ANON_KEY;
+// Mock veri modu kontrolü
+const USE_MOCK_DATA = process.env.USE_MOCK_DATA === 'true';
+const IS_DEV = process.env.NODE_ENV === 'development';
 
-// Supabase istemcisini tip tanımlarıyla oluştur
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: false,
-  },
-});
+const supabaseUrl = process.env.SUPABASE_URL || '';
+const supabaseKey = process.env.SUPABASE_ANON_KEY || '';
+
+let supabase: SupabaseClient<Database>;
+
+// Mock veri modunda boş değerlerle bile çalışabilecek bir istemci oluştur
+// veya gerçek bağlantı bilgileriyle bir istemci oluştur
+try {
+  if (IS_DEV && USE_MOCK_DATA) {
+    console.log('🧪 Mock veri modu: Supabase minimalist istemci oluşturuluyor');
+    // Mock veri modunda minimum düzeyde bir istemci oluştur
+    // Bu istemci hiçbir API çağrısı yapmayacak ama referans olarak kullanılabilecek
+    supabase = createClient<Database>(
+      'https://placeholder-url.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.mock-key'
+    );
+  } else {
+    // Normal modda gerçek bağlantı bilgileriyle istemci oluştur
+    console.log('🔌 Gerçek Supabase bağlantısı kurulmaya çalışılıyor');
+    supabase = createClient<Database>(supabaseUrl, supabaseKey);
+  }
+} catch (error) {
+  console.error('Supabase istemcisi oluşturulurken hata:', error);
+  // Hata durumunda da çalışabilmesi için boş bir istemci oluştur
+  supabase = createClient<Database>(
+    'https://placeholder-url.supabase.co',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.mock-key'
+  );
+}
 
 // Veri sorgulama işlemleri için yardımcı fonksiyonlar
 

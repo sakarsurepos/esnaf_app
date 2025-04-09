@@ -2,6 +2,9 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { MainTabParamList } from './types';
 import HomeNavigator from './HomeNavigator';
+import ProfileNavigator from './ProfileNavigator';
+import ServiceNavigator from './ServiceNavigator';
+import AppointmentNavigator from './AppointmentNavigator';
 import { View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -54,14 +57,14 @@ const MainTabNavigator = () => {
       />
       <Tab.Screen 
         name="Search" 
-        component={PlaceholderScreen}
+        component={ServiceNavigator}
         options={{ 
-          title: 'Arama',
+          title: 'Keşfet',
         }}
       />
       <Tab.Screen 
         name="Appointments" 
-        component={PlaceholderScreen}
+        component={AppointmentNavigator}
         options={{ 
           title: 'Randevular',
         }}
@@ -75,7 +78,7 @@ const MainTabNavigator = () => {
       />
       <Tab.Screen 
         name="Account" 
-        component={PlaceholderScreen}
+        component={ProfileNavigator}
         options={{ 
           title: 'Hesabım',
         }}

@@ -15,111 +15,55 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { HomeStackParamList } from '../../navigation/types';
-import { supabase } from '../../services/supabase';
+import { Tables } from '../../types/supabase';
+import { getAllServiceCategories, getAllBusinesses } from '../../services/dataService';
 
 type HomeScreenNavigationProp = NativeStackNavigationProp<HomeStackParamList, 'Home'>;
-
-// Örnek veri yapıları
-interface Category {
-  id: string;
-  name: string;
-  icon: string;
-}
-
-interface Business {
-  id: string;
-  name: string;
-  description: string;
-  image: string;
-  rating: number;
-  distance?: number; // Opsiyonel, konum bilgisi varsa hesaplanacak
-  category_id: string;
-}
 
 const HomeScreen = () => {
   const navigation = useNavigation<HomeScreenNavigationProp>();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [popularBusinesses, setPopularBusinesses] = useState<Business[]>([]);
-  const [nearbyBusinesses, setNearbyBusinesses] = useState<Business[]>([]);
-
-  // Örnek veriler - Gerçek uygulamada Supabase'den gelecek
-  const sampleCategories: Category[] = [
-    { id: '1', name: 'Berber', icon: 'cut' },
-    { id: '2', name: 'Terzi', icon: 'shirt' },
-    { id: '3', name: 'Tamirci', icon: 'hammer' },
-    { id: '4', name: 'Fırın', icon: 'restaurant' },
-    { id: '5', name: 'Kasap', icon: 'nutrition' },
-    { id: '6', name: 'Manav', icon: 'leaf' },
-    { id: '7', name: 'Kuru Temizleme', icon: 'water' },
-    { id: '8', name: 'Eczane', icon: 'medkit' }
-  ];
-
-  const sampleBusinesses: Business[] = [
-    {
-      id: '1',
-      name: 'Ahmet Berber Salonu',
-      description: 'Kaliteli saç kesimi ve tıraş hizmetleri',
-      image: 'https://picsum.photos/200',
-      rating: 4.7,
-      category_id: '1'
-    },
-    {
-      id: '2',
-      name: 'Mehmet Usta Terzi',
-      description: 'Her türlü tamir ve dikiş işleri',
-      image: 'https://picsum.photos/201',
-      rating: 4.5,
-      category_id: '2'
-    },
-    {
-      id: '3',
-      name: 'Anadolu Fırını',
-      description: 'Taze ekmek ve unlu mamüller',
-      image: 'https://picsum.photos/202',
-      rating: 4.8,
-      category_id: '4'
-    },
-    {
-      id: '4',
-      name: 'Ali Usta Tamirci',
-      description: 'Elektronik ve ev aletleri tamiri',
-      image: 'https://picsum.photos/203',
-      rating: 4.3,
-      category_id: '3'
-    },
-    {
-      id: '5',
-      name: 'Yılmaz Kasap',
-      description: 'Taze et ürünleri',
-      image: 'https://picsum.photos/204',
-      rating: 4.6,
-      category_id: '5'
-    }
-  ];
+  const [categories, setCategories] = useState<Tables<'service_categories'>[]>([]);
+  const [popularBusinesses, setPopularBusinesses] = useState<Tables<'businesses'>[]>([]);
+  const [nearbyBusinesses, setNearbyBusinesses] = useState<Tables<'businesses'>[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   // Verileri yükleme fonksiyonu
   const loadData = async () => {
     try {
       setLoading(true);
+      setError(null);
       
-      // Gerçek uygulamada burası Supabase sorguları olacak
-      // Örnek kod:
-      // const { data: categoriesData, error: categoriesError } = await supabase
-      //   .from('categories')
-      //   .select('*');
+      // Hizmet kategorilerini yükle
+      const { data: categoriesData, error: categoriesError } = await getAllServiceCategories();
       
-      // if (categoriesError) throw categoriesError;
-      // setCategories(categoriesData);
+      if (categoriesError) {
+        throw new Error('Kategoriler yüklenirken bir hata oluştu');
+      }
+      
+      setCategories(categoriesData || []);
 
-      // Demo için örnek verileri kullan
-      setCategories(sampleCategories);
-      setPopularBusinesses(sampleBusinesses);
-      setNearbyBusinesses([...sampleBusinesses].reverse());
+      // İşletmeleri yükle
+      const { data: businessesData, error: businessesError } = await getAllBusinesses();
+      
+      if (businessesError) {
+        throw new Error('İşletmeler yüklenirken bir hata oluştu');
+      }
+      
+      if (businessesData) {
+        // Popüler işletmeler (onaylı olan işletmeleri göster)
+        const approved = businessesData.filter(business => business.approval_status === 'approved');
+        setPopularBusinesses(approved);
+        
+        // Yakındaki işletmeler için farklı bir sıralama/filtreleme uygulayabilirsiniz.
+        // Örneğin gerçek uygulamada konum verilerine göre sıralama yapılabilir
+        setNearbyBusinesses([...approved].reverse());
+      }
 
     } catch (error) {
       console.error('Veri yükleme hatası:', error);
+      setError('Veriler yüklenirken bir sorun oluştu. Lütfen tekrar deneyin.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -137,11 +81,31 @@ const HomeScreen = () => {
     loadData();
   };
 
+  // Kategori seçme işlevi
+  const handleCategorySelect = (categoryId: string, categoryName: string) => {
+    navigation.navigate('ServiceList' as any, { 
+      categoryId, 
+      categoryName 
+    });
+  };
+
   if (loading && !refreshing) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#3498db" />
         <Text style={styles.loadingText}>Yükleniyor...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.errorContainer}>
+        <Ionicons name="alert-circle-outline" size={50} color="#e74c3c" />
+        <Text style={styles.errorText}>{error}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={loadData}>
+          <Text style={styles.retryButtonText}>Tekrar Dene</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -173,10 +137,10 @@ const HomeScreen = () => {
           renderItem={({ item }) => (
             <TouchableOpacity
               style={styles.categoryItem}
-              onPress={() => console.log('Kategori seçildi:', item.name)}
+              onPress={() => handleCategorySelect(item.id, item.name)}
             >
               <View style={styles.categoryIconContainer}>
-                <Ionicons name={item.icon as any} size={24} color="#3498db" />
+                <Ionicons name={item.icon_url as any} size={24} color="#3498db" />
               </View>
               <Text style={styles.categoryName}>{item.name}</Text>
             </TouchableOpacity>
@@ -184,58 +148,62 @@ const HomeScreen = () => {
         />
       </View>
 
-      {/* Popüler Esnaflar */}
+      {/* Popüler İşletmeler */}
       <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>Popüler Esnaflar</Text>
-        <FlatList
-          data={popularBusinesses}
-          keyExtractor={(item) => item.id}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={styles.businessCard}
-              onPress={() => navigation.navigate('BusinessDetails', { businessId: item.id })}
-            >
-              <Image source={{ uri: item.image }} style={styles.businessImage} />
-              <View style={styles.businessInfo}>
-                <Text style={styles.businessName}>{item.name}</Text>
-                <Text style={styles.businessDescription} numberOfLines={2}>
-                  {item.description}
-                </Text>
-                <View style={styles.ratingContainer}>
-                  <Ionicons name="star" size={16} color="#FFD700" />
-                  <Text style={styles.ratingText}>{item.rating.toFixed(1)}</Text>
+        <Text style={styles.sectionTitle}>Popüler İşletmeler</Text>
+        {popularBusinesses.length === 0 ? (
+          <Text style={styles.emptyText}>Henüz işletme bulunmuyor</Text>
+        ) : (
+          <FlatList
+            data={popularBusinesses}
+            keyExtractor={(item) => item.id}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={styles.businessCard}
+                onPress={() => navigation.navigate('BusinessDetails' as any, { businessId: item.id })}
+              >
+                <View style={styles.businessImageContainer}>
+                  <Ionicons name="business-outline" size={32} color="#3498db" />
                 </View>
-              </View>
-            </TouchableOpacity>
-          )}
-        />
+                <View style={styles.businessInfo}>
+                  <Text style={styles.businessName}>{item.name}</Text>
+                  <Text style={styles.businessDescription} numberOfLines={2}>
+                    {item.description}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            )}
+          />
+        )}
       </View>
 
       {/* Yakınındaki İşletmeler */}
       <View style={styles.sectionContainer}>
         <Text style={styles.sectionTitle}>Yakınındaki İşletmeler</Text>
-        {nearbyBusinesses.map((business) => (
-          <TouchableOpacity
-            key={business.id}
-            style={styles.nearbyBusinessItem}
-            onPress={() => navigation.navigate('BusinessDetails', { businessId: business.id })}
-          >
-            <Image source={{ uri: business.image }} style={styles.nearbyBusinessImage} />
-            <View style={styles.nearbyBusinessInfo}>
-              <Text style={styles.businessName}>{business.name}</Text>
-              <Text style={styles.businessDescription} numberOfLines={1}>
-                {business.description}
-              </Text>
-              <View style={styles.ratingContainer}>
-                <Ionicons name="star" size={16} color="#FFD700" />
-                <Text style={styles.ratingText}>{business.rating.toFixed(1)}</Text>
+        {nearbyBusinesses.length === 0 ? (
+          <Text style={styles.emptyText}>Henüz yakında işletme bulunmuyor</Text>
+        ) : (
+          nearbyBusinesses.map((business) => (
+            <TouchableOpacity
+              key={business.id}
+              style={styles.nearbyBusinessItem}
+              onPress={() => navigation.navigate('BusinessDetails' as any, { businessId: business.id })}
+            >
+              <View style={styles.nearbyBusinessImageContainer}>
+                <Ionicons name="business-outline" size={28} color="#3498db" />
               </View>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color="#ccc" />
-          </TouchableOpacity>
-        ))}
+              <View style={styles.nearbyBusinessInfo}>
+                <Text style={styles.businessName}>{business.name}</Text>
+                <Text style={styles.businessDescription} numberOfLines={1}>
+                  {business.description}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#ccc" />
+            </TouchableOpacity>
+          ))
+        )}
       </View>
     </ScrollView>
   );
@@ -258,64 +226,100 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
   },
-  searchBar: {
-    margin: 16,
-    backgroundColor: '#fff',
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#e74c3c',
+    textAlign: 'center',
+    marginVertical: 16,
+  },
+  retryButton: {
+    backgroundColor: '#3498db',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
     borderRadius: 8,
-    padding: 12,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#999',
+    textAlign: 'center',
+    marginTop: 10,
+  },
+  searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#fff',
+    margin: 16,
+    padding: 12,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: '#eee',
   },
   searchText: {
     marginLeft: 10,
-    color: '#666',
+    color: '#999',
     fontSize: 16,
   },
   sectionContainer: {
-    marginBottom: 20,
+    backgroundColor: '#fff',
+    padding: 16,
+    marginBottom: 8,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: '#eee',
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginLeft: 16,
-    marginBottom: 10,
-    marginTop: 5,
+    marginBottom: 16,
+    color: '#333',
   },
   categoryItem: {
     alignItems: 'center',
-    marginHorizontal: 10,
+    marginRight: 20,
     width: 80,
   },
   categoryIconContainer: {
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#f0f8ff',
+    backgroundColor: '#f5f5f5',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
   },
   categoryName: {
-    fontSize: 12,
     textAlign: 'center',
+    fontSize: 12,
+    color: '#333',
   },
   businessCard: {
-    width: windowWidth * 0.75,
+    width: windowWidth * 0.7,
     backgroundColor: '#fff',
     borderRadius: 8,
-    marginHorizontal: 8,
+    marginRight: 16,
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 2,
-    overflow: 'hidden',
   },
-  businessImage: {
-    width: '100%',
-    height: 150,
+  businessImageContainer: {
+    height: 120,
+    backgroundColor: '#f5f5f5',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   businessInfo: {
     padding: 12,
@@ -323,6 +327,7 @@ const styles = StyleSheet.create({
   businessName: {
     fontSize: 16,
     fontWeight: 'bold',
+    color: '#333',
     marginBottom: 4,
   },
   businessDescription: {
@@ -330,37 +335,30 @@ const styles = StyleSheet.create({
     color: '#666',
     marginBottom: 8,
   },
-  ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  ratingText: {
-    marginLeft: 4,
-    fontSize: 14,
-    color: '#666',
-  },
   nearbyBusinessItem: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
-    marginHorizontal: 16,
-    marginBottom: 8,
+    padding: 12,
     borderRadius: 8,
-    padding: 10,
+    marginBottom: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 1,
   },
-  nearbyBusinessImage: {
-    width: 70,
-    height: 70,
-    borderRadius: 8,
+  nearbyBusinessImageContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#f5f5f5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
   },
   nearbyBusinessInfo: {
     flex: 1,
-    marginLeft: 12,
   },
 });
 

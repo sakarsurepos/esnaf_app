@@ -16,167 +16,160 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { HomeStackParamList } from '../../navigation/types';
-import { supabase } from '../../services/supabase';
+import { 
+  getBusinessData, 
+  getAllServices, 
+  getUserFavorites, 
+  getBusinessStaff,
+  getStaffProfiles,
+  getBusinessHours,
+  getBusinessReviews,
+  BusinessReview
+} from '../../services/dataService';
+import { Tables } from '../../types/supabase';
+import { StaffProfileInfo } from '../../models/staff_members/sample';
+import * as Location from 'expo-location';
+import MapView, { Marker } from 'react-native-maps';
 
 type BusinessDetailsRouteProp = RouteProp<HomeStackParamList, 'BusinessDetails'>;
 type BusinessDetailsNavigationProp = NativeStackNavigationProp<HomeStackParamList>;
-
-interface Business {
-  id: string;
-  name: string;
-  description: string;
-  image: string;
-  rating: number;
-  address: string;
-  phone: string;
-  website?: string;
-  workingHours: string;
-  category_id: string;
-  latitude?: number;
-  longitude?: number;
-}
-
-interface Service {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  duration: number;
-  business_id: string;
-}
-
-interface Review {
-  id: string;
-  user_name: string;
-  rating: number;
-  comment: string;
-  created_at: string;
-  business_id: string;
-}
 
 const BusinessDetailsScreen = () => {
   const navigation = useNavigation<BusinessDetailsNavigationProp>();
   const route = useRoute<BusinessDetailsRouteProp>();
   const { businessId } = route.params;
 
-  const [business, setBusiness] = useState<Business | null>(null);
-  const [services, setServices] = useState<Service[]>([]);
-  const [reviews, setReviews] = useState<Review[]>([]);
+  const [business, setBusiness] = useState<Tables<'businesses'> | null>(null);
+  const [services, setServices] = useState<Tables<'services'>[]>([]);
+  const [reviews, setReviews] = useState<BusinessReview[]>([]);
+  const [staff, setStaff] = useState<Tables<'staff_members'>[]>([]);
+  const [staffProfiles, setStaffProfiles] = useState<StaffProfileInfo[]>([]);
+  const [businessHours, setBusinessHours] = useState<Tables<'business_hours'>[]>([]);
+  const [loadingReviews, setLoadingReviews] = useState(true);
+  const [loadingStaff, setLoadingStaff] = useState(true);
+  const [loadingHours, setLoadingHours] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isFavorite, setIsFavorite] = useState(false);
-
-  // Örnek veriler - gerçek uygulamada Supabase'den gelecek
-  const sampleBusiness: Business = {
-    id: businessId,
-    name: 'Ahmet Berber Salonu',
-    description: 'Şehrin merkezinde, her türlü saç kesimi ve sakal tıraşı hizmetleri sunan modern bir berber salonu. 15 yıllık tecrübe ile müşteri memnuniyetini ön planda tutuyoruz.',
-    image: 'https://picsum.photos/800/400',
-    rating: 4.7,
-    address: 'Atatürk Cad. No:123, Merkez, İstanbul',
-    phone: '+90 (212) 123 45 67',
-    website: 'https://www.ahmetberber.com',
-    workingHours: 'Pazartesi-Cumartesi: 09:00-19:00',
-    category_id: '1',
-    latitude: 41.0082,
-    longitude: 28.9784,
-  };
-
-  const sampleServices: Service[] = [
-    {
-      id: '1',
-      name: 'Saç Kesimi',
-      description: 'Erkek saç kesimi, yıkama dahil',
-      price: 80,
-      duration: 30,
-      business_id: businessId,
-    },
-    {
-      id: '2',
-      name: 'Sakal Tıraşı',
-      description: 'Sakal şekillendirme ve tıraş',
-      price: 50,
-      duration: 20,
-      business_id: businessId,
-    },
-    {
-      id: '3',
-      name: 'Saç Yıkama',
-      description: 'Özel şampuan ile saç yıkama',
-      price: 30,
-      duration: 15,
-      business_id: businessId,
-    },
-    {
-      id: '4',
-      name: 'Çocuk Saç Kesimi',
-      description: '12 yaş altı çocuklar için',
-      price: 60,
-      duration: 25,
-      business_id: businessId,
-    },
-  ];
-
-  const sampleReviews: Review[] = [
-    {
-      id: '1',
-      user_name: 'Mehmet Y.',
-      rating: 5,
-      comment: 'Harika bir hizmet, çok memnun kaldım. Özellikle saç kesimi konusunda ustalar.',
-      created_at: '2023-03-15',
-      business_id: businessId,
-    },
-    {
-      id: '2',
-      user_name: 'Ali K.',
-      rating: 4,
-      comment: 'İyi bir deneyimdi, fiyatlar biraz yüksek ama hizmet kaliteli.',
-      created_at: '2023-02-28',
-      business_id: businessId,
-    },
-    {
-      id: '3',
-      user_name: 'Hasan T.',
-      rating: 5,
-      comment: 'Çok temiz bir salon, personel çok ilgili. Kesinlikle tavsiye ederim.',
-      created_at: '2023-01-20',
-      business_id: businessId,
-    },
-  ];
+  const [activeTab, setActiveTab] = useState<'services' | 'staff' | 'reviews' | 'info'>('services');
+  const [businessLocation, setBusinessLocation] = useState<{latitude: number, longitude: number} | null>(null);
 
   // Veri yükleme fonksiyonu
   const loadData = async () => {
     try {
       setLoading(true);
+      setError(null);
 
-      // Gerçek uygulamada Supabase sorguları olacak
-      // Örnek kod:
-      // const { data, error } = await supabase
-      //   .from('businesses')
-      //   .select('*')
-      //   .eq('id', businessId)
-      //   .single();
+      // İşletme bilgilerini getir
+      const { data: businessData, error: businessError } = await getBusinessData(businessId);
       
-      // if (error) throw error;
-      // setBusiness(data);
+      if (businessError) {
+        throw new Error('İşletme bilgileri yüklenemedi');
+      }
+      
+      if (businessData) {
+        setBusiness(businessData);
+        
+        // İşletmeye ait hizmetleri getir
+        const { data: allServices, error: servicesError } = await getAllServices();
+        
+        if (servicesError) {
+          console.error('Hizmetler yüklenirken hata:', servicesError);
+        } else {
+          // İşletmeye ait hizmetleri filtrele
+          if (allServices) {
+            const businessServices = allServices.filter(
+              service => service.business_id === businessId
+            );
+            setServices(businessServices);
+          }
+        }
 
-      // Demo için örnek verileri yükle
-      setBusiness(sampleBusiness);
-      setServices(sampleServices);
-      setReviews(sampleReviews);
-
-      // Favori durumu kontrolü (gerçek uygulamada kullanıcı bazlı kontrol edilecek)
-      setIsFavorite(false);
+        // Demo için konum bilgisi oluştur - Gerçek uygulamada veritabanındaki konum kullanılacak
+        setBusinessLocation({
+          latitude: 41.0082,
+          longitude: 28.9784
+        });
+      }
 
     } catch (error) {
       console.error('İşletme verileri yüklenirken hata:', error);
-      Alert.alert('Hata', 'İşletme bilgileri yüklenirken bir sorun oluştu.');
+      setError('İşletme bilgileri yüklenirken bir sorun oluştu.');
     } finally {
       setLoading(false);
     }
   };
 
+  const loadReviews = async () => {
+    try {
+      setLoadingReviews(true);
+      const { data, error } = await getBusinessReviews(businessId);
+      
+      if (error) {
+        console.error('Değerlendirmeler yüklenirken hata:', error);
+      } else if (data) {
+        setReviews(data);
+      }
+    } catch (error) {
+      console.error('Değerlendirmeler yüklenirken hata:', error);
+    } finally {
+      setLoadingReviews(false);
+    }
+  };
+
+  const loadStaff = async () => {
+    try {
+      setLoadingStaff(true);
+      
+      // Personel bilgilerini getir
+      const { data: staffData, error: staffError } = await getBusinessStaff(businessId);
+      
+      if (staffError) {
+        console.error('Personel bilgileri yüklenirken hata:', staffError);
+      } else if (staffData && staffData.length > 0) {
+        setStaff(staffData);
+        
+        // Personel profil detaylarını getir
+        const staffIds = staffData.map(member => member.id);
+        const { data: profilesData, error: profilesError } = await getStaffProfiles(staffIds);
+        
+        if (profilesError) {
+          console.error('Personel profilleri yüklenirken hata:', profilesError);
+        } else if (profilesData) {
+          setStaffProfiles(profilesData);
+        }
+      }
+    } catch (error) {
+      console.error('Personel bilgileri yüklenirken hata:', error);
+    } finally {
+      setLoadingStaff(false);
+    }
+  };
+
+  const loadBusinessHours = async () => {
+    try {
+      setLoadingHours(true);
+      
+      // Çalışma saatlerini getir
+      const { data: hoursData, error: hoursError } = await getBusinessHours(businessId);
+      
+      if (hoursError) {
+        console.error('Çalışma saatleri yüklenirken hata:', hoursError);
+      } else if (hoursData) {
+        setBusinessHours(hoursData);
+      }
+    } catch (error) {
+      console.error('Çalışma saatleri yüklenirken hata:', error);
+    } finally {
+      setLoadingHours(false);
+    }
+  };
+
   useEffect(() => {
     loadData();
+    loadReviews();
+    loadStaff();
+    loadBusinessHours();
   }, [businessId]);
 
   // Telefon arama fonksiyonu
@@ -196,10 +189,10 @@ const BusinessDetailsScreen = () => {
 
   // Harita açma fonksiyonu
   const handleOpenMap = () => {
-    if (business?.latitude && business?.longitude) {
+    if (businessLocation) {
       const scheme = Platform.select({ ios: 'maps:0,0?q=', android: 'geo:0,0?q=' });
-      const latLng = `${business.latitude},${business.longitude}`;
-      const label = business.name;
+      const latLng = `${businessLocation.latitude},${businessLocation.longitude}`;
+      const label = business?.name || 'İşletme Konumu';
       const url = Platform.select({
         ios: `${scheme}${label}@${latLng}`,
         android: `${scheme}${latLng}(${label})`
@@ -215,13 +208,30 @@ const BusinessDetailsScreen = () => {
 
   // Randevu alma fonksiyonu
   const handleBookAppointment = (serviceId: string) => {
-    navigation.navigate('Appointment', { serviceId });
+    navigation.navigate('Appointments', {
+      screen: 'CreateAppointment',
+      params: { serviceId }
+    });
   };
 
   // Favori ekleme/çıkarma fonksiyonu
   const handleToggleFavorite = () => {
     setIsFavorite(!isFavorite);
     // Gerçek uygulamada Supabase'e kaydetme işlemi yapılacak
+  };
+
+  // Gün isimlerini türkçe olarak aldığımız helper fonksiyon
+  const getDayName = (dayOfWeek: number): string => {
+    const days = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
+    return days[dayOfWeek];
+  };
+
+  // Ortalama değerlendirme puanını hesapla
+  const getAverageRating = (): string => {
+    if (reviews.length === 0) return '0.0';
+    
+    const sum = reviews.reduce((total, review) => total + review.rating, 0);
+    return (sum / reviews.length).toFixed(1);
   };
 
   if (loading) {
@@ -232,11 +242,11 @@ const BusinessDetailsScreen = () => {
     );
   }
 
-  if (!business) {
+  if (error || !business) {
     return (
       <View style={styles.errorContainer}>
         <Ionicons name="alert-circle-outline" size={48} color="#e74c3c" />
-        <Text style={styles.errorText}>İşletme bilgileri bulunamadı.</Text>
+        <Text style={styles.errorText}>{error || 'İşletme bilgileri bulunamadı.'}</Text>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Text style={styles.backButtonText}>Geri Dön</Text>
         </TouchableOpacity>
@@ -245,10 +255,12 @@ const BusinessDetailsScreen = () => {
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <View style={styles.container}>
       {/* İşletme Görseli */}
       <View style={styles.imageContainer}>
-        <Image source={{ uri: business.image }} style={styles.image} />
+        <View style={styles.imageBackground}>
+          <Ionicons name="business-outline" size={60} color="#3498db" />
+        </View>
         <TouchableOpacity 
           style={styles.favoriteButton}
           onPress={handleToggleFavorite}
@@ -273,7 +285,7 @@ const BusinessDetailsScreen = () => {
         
         <View style={styles.ratingContainer}>
           <Ionicons name="star" size={20} color="#FFD700" />
-          <Text style={styles.ratingText}>{business.rating.toFixed(1)}</Text>
+          <Text style={styles.ratingText}>{getAverageRating()}</Text>
           <Text style={styles.reviewCount}>({reviews.length} değerlendirme)</Text>
         </View>
 
@@ -281,74 +293,256 @@ const BusinessDetailsScreen = () => {
 
         {/* İletişim Bilgileri */}
         <View style={styles.contactContainer}>
-          <TouchableOpacity style={styles.contactItem} onPress={handleCallPhone}>
-            <Ionicons name="call" size={24} color="#3498db" />
+          <TouchableOpacity 
+            style={styles.contactItem}
+            onPress={handleCallPhone}
+          >
+            <Ionicons name="call-outline" size={20} color="#3498db" />
             <Text style={styles.contactText}>{business.phone}</Text>
+            <Ionicons name="chevron-forward" size={16} color="#ccc" />
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.contactItem} onPress={handleOpenMap}>
-            <Ionicons name="location" size={24} color="#3498db" />
-            <Text style={styles.contactText}>{business.address}</Text>
+          <TouchableOpacity 
+            style={styles.contactItem}
+            onPress={handleOpenMap}
+          >
+            <Ionicons name="location-outline" size={20} color="#3498db" />
+            <Text style={styles.contactText}>Konum bilgisini görüntüle</Text>
+            <Ionicons name="chevron-forward" size={16} color="#ccc" />
           </TouchableOpacity>
           
-          <View style={styles.contactItem}>
-            <Ionicons name="time" size={24} color="#3498db" />
-            <Text style={styles.contactText}>{business.workingHours}</Text>
-          </View>
-
-          {business.website && (
+          {business.email && (
             <TouchableOpacity 
               style={styles.contactItem}
-              onPress={() => Linking.openURL(business.website || '')}
+              onPress={() => Linking.openURL(`mailto:${business.email}`)}
             >
-              <Ionicons name="globe" size={24} color="#3498db" />
-              <Text style={styles.contactText}>{business.website}</Text>
+              <Ionicons name="mail-outline" size={20} color="#3498db" />
+              <Text style={styles.contactText}>{business.email}</Text>
+              <Ionicons name="chevron-forward" size={16} color="#ccc" />
             </TouchableOpacity>
           )}
         </View>
       </View>
 
-      {/* Hizmetler Bölümü */}
-      <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>Hizmetler</Text>
-        {services.map(service => (
-          <View key={service.id} style={styles.serviceItem}>
-            <View style={styles.serviceInfo}>
-              <Text style={styles.serviceName}>{service.name}</Text>
-              <Text style={styles.serviceDescription}>{service.description}</Text>
-              <View style={styles.serviceDetails}>
-                <Text style={styles.servicePrice}>{service.price} ₺</Text>
-                <Text style={styles.serviceDuration}>{service.duration} dk</Text>
-              </View>
-            </View>
-            <TouchableOpacity 
-              style={styles.bookButton}
-              onPress={() => handleBookAppointment(service.id)}
-            >
-              <Text style={styles.bookButtonText}>Randevu Al</Text>
-            </TouchableOpacity>
-          </View>
-        ))}
+      {/* Tab Menü */}
+      <View style={styles.tabContainer}>
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === 'services' && styles.activeTab]}
+          onPress={() => setActiveTab('services')}
+        >
+          <Text style={[styles.tabText, activeTab === 'services' && styles.activeTabText]}>Hizmetler</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === 'staff' && styles.activeTab]}
+          onPress={() => setActiveTab('staff')}
+        >
+          <Text style={[styles.tabText, activeTab === 'staff' && styles.activeTabText]}>Personel</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === 'reviews' && styles.activeTab]}
+          onPress={() => setActiveTab('reviews')}
+        >
+          <Text style={[styles.tabText, activeTab === 'reviews' && styles.activeTabText]}>Değerlendirmeler</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === 'info' && styles.activeTab]}
+          onPress={() => setActiveTab('info')}
+        >
+          <Text style={[styles.tabText, activeTab === 'info' && styles.activeTabText]}>Bilgiler</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Değerlendirmeler Bölümü */}
-      <View style={styles.sectionContainer}>
-        <Text style={styles.sectionTitle}>Değerlendirmeler</Text>
-        {reviews.map(review => (
-          <View key={review.id} style={styles.reviewItem}>
-            <View style={styles.reviewHeader}>
-              <Text style={styles.reviewerName}>{review.user_name}</Text>
-              <View style={styles.reviewRatingContainer}>
-                <Ionicons name="star" size={16} color="#FFD700" />
-                <Text style={styles.reviewRating}>{review.rating}</Text>
-              </View>
-            </View>
-            <Text style={styles.reviewComment}>{review.comment}</Text>
-            <Text style={styles.reviewDate}>{review.created_at}</Text>
+      <ScrollView style={styles.contentContainer}>
+        {/* Hizmetler Sekmesi */}
+        {activeTab === 'services' && (
+          <View style={styles.sectionContainer}>
+            {services.length === 0 ? (
+              <Text style={styles.emptyText}>Bu işletme için henüz hizmet bulunmuyor</Text>
+            ) : (
+              services.map(service => (
+                <View key={service.id} style={styles.serviceItem}>
+                  <View style={styles.serviceInfo}>
+                    <Text style={styles.serviceName}>{service.title}</Text>
+                    <Text style={styles.serviceDescription}>{service.description}</Text>
+                    <View style={styles.serviceDetails}>
+                      <Text style={styles.servicePrice}>{service.price.toFixed(2)} ₺</Text>
+                      <Text style={styles.serviceDuration}>{service.duration_minutes} dk</Text>
+                    </View>
+                  </View>
+                  <TouchableOpacity 
+                    style={styles.bookButton}
+                    onPress={() => handleBookAppointment(service.id)}
+                  >
+                    <Text style={styles.bookButtonText}>Randevu Al</Text>
+                  </TouchableOpacity>
+                </View>
+              ))
+            )}
           </View>
-        ))}
-      </View>
-    </ScrollView>
+        )}
+
+        {/* Personel Sekmesi */}
+        {activeTab === 'staff' && (
+          <View style={styles.sectionContainer}>
+            {loadingStaff ? (
+              <ActivityIndicator size="small" color="#3498db" style={styles.loader} />
+            ) : staff.length === 0 ? (
+              <Text style={styles.emptyText}>Bu işletme için henüz personel bilgisi bulunmuyor</Text>
+            ) : (
+              staffProfiles.map(profile => {
+                const staffMember = staff.find(s => s.id === profile.staff_id);
+                return (
+                  <View key={profile.staff_id} style={styles.staffItem}>
+                    <View style={styles.staffHeader}>
+                      <Image 
+                        source={{ uri: profile.profile_image || 'https://via.placeholder.com/150' }} 
+                        style={styles.staffImage} 
+                      />
+                      <View style={styles.staffTitleContainer}>
+                        <Text style={styles.staffName}>{profile.full_name}</Text>
+                        <Text style={styles.staffPosition}>{staffMember?.position}</Text>
+                        
+                        <View style={styles.staffRatingContainer}>
+                          <Ionicons name="star" size={16} color="#FFD700" />
+                          <Text style={styles.staffRating}>{profile.average_rating.toFixed(1)}</Text>
+                          <Text style={styles.staffReviewCount}>({profile.total_reviews} değerlendirme)</Text>
+                        </View>
+                      </View>
+                    </View>
+                    
+                    <Text style={styles.staffExpertise}>
+                      <Text style={styles.boldText}>Uzmanlık: </Text>
+                      {staffMember?.expertise}
+                    </Text>
+                    
+                    <Text style={styles.staffAbout}>{profile.about}</Text>
+                    
+                    <View style={styles.staffStats}>
+                      <View style={styles.staffStatItem}>
+                        <Ionicons name="time-outline" size={16} color="#666" />
+                        <Text style={styles.staffStatText}>{profile.experience_years} yıl deneyim</Text>
+                      </View>
+                      
+                      <View style={styles.staffStatItem}>
+                        <Ionicons name="checkmark-circle-outline" size={16} color="#666" />
+                        <Text style={styles.staffStatText}>{profile.total_services}+ hizmet</Text>
+                      </View>
+                    </View>
+                  </View>
+                );
+              })
+            )}
+          </View>
+        )}
+
+        {/* Değerlendirmeler Sekmesi */}
+        {activeTab === 'reviews' && (
+          <View style={styles.sectionContainer}>
+            {loadingReviews ? (
+              <ActivityIndicator size="small" color="#3498db" style={styles.loader} />
+            ) : reviews.length === 0 ? (
+              <Text style={styles.emptyText}>Henüz değerlendirme yapılmamış</Text>
+            ) : (
+              <>
+                <View style={styles.reviewSummary}>
+                  <View style={styles.reviewRatingLarge}>
+                    <Text style={styles.reviewRatingNumber}>{getAverageRating()}</Text>
+                    <Ionicons name="star" size={24} color="#FFD700" />
+                  </View>
+                  <Text style={styles.reviewRatingText}>Toplam {reviews.length} Değerlendirme</Text>
+                </View>
+                
+                {reviews.map(review => (
+                  <View key={review.id} style={styles.reviewItem}>
+                    <View style={styles.reviewHeader}>
+                      <Text style={styles.reviewerName}>{review.user_name}</Text>
+                      <View style={styles.reviewRatingContainer}>
+                        <Ionicons name="star" size={16} color="#FFD700" />
+                        <Text style={styles.reviewRating}>{review.rating}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.reviewComment}>{review.comment}</Text>
+                    <Text style={styles.reviewDate}>
+                      {new Date(review.created_at).toLocaleDateString('tr-TR')}
+                    </Text>
+                  </View>
+                ))}
+              </>
+            )}
+          </View>
+        )}
+
+        {/* Bilgiler Sekmesi */}
+        {activeTab === 'info' && (
+          <View style={styles.sectionContainer}>
+            {/* Konum */}
+            <View style={styles.infoSection}>
+              <Text style={styles.infoSectionTitle}>Konum</Text>
+              
+              {businessLocation ? (
+                <>
+                  <View style={styles.mapContainer}>
+                    <MapView
+                      style={styles.map}
+                      initialRegion={{
+                        latitude: businessLocation.latitude,
+                        longitude: businessLocation.longitude,
+                        latitudeDelta: 0.01,
+                        longitudeDelta: 0.01,
+                      }}
+                    >
+                      <Marker
+                        coordinate={{
+                          latitude: businessLocation.latitude,
+                          longitude: businessLocation.longitude,
+                        }}
+                        title={business.name}
+                      />
+                    </MapView>
+                  </View>
+                  <TouchableOpacity 
+                    style={styles.openMapButton}
+                    onPress={handleOpenMap}
+                  >
+                    <Ionicons name="navigate-outline" size={20} color="#fff" />
+                    <Text style={styles.openMapButtonText}>Yol Tarifi Al</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <Text style={styles.emptyText}>Konum bilgisi bulunmuyor</Text>
+              )}
+            </View>
+            
+            {/* Çalışma Saatleri */}
+            <View style={styles.infoSection}>
+              <Text style={styles.infoSectionTitle}>Çalışma Saatleri</Text>
+              
+              {loadingHours ? (
+                <ActivityIndicator size="small" color="#3498db" style={styles.loader} />
+              ) : businessHours.length === 0 ? (
+                <Text style={styles.emptyText}>Çalışma saati bilgisi bulunmuyor</Text>
+              ) : (
+                businessHours.map(hour => (
+                  <View key={hour.id} style={styles.hourItem}>
+                    <Text style={styles.dayName}>{getDayName(hour.day_of_week || 0)}</Text>
+                    {hour.is_closed ? (
+                      <Text style={styles.closedText}>Kapalı</Text>
+                    ) : (
+                      <Text style={styles.hourText}>
+                        {hour.open_time} - {hour.close_time}
+                      </Text>
+                    )}
+                  </View>
+                ))
+              )}
+            </View>
+          </View>
+        )}
+      </ScrollView>
+    </View>
   );
 };
 
@@ -364,6 +558,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  loader: {
+    marginVertical: 20,
+  },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -372,10 +569,16 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 16,
-    color: '#666',
+    color: '#e74c3c',
     textAlign: 'center',
     marginTop: 10,
     marginBottom: 20,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#999',
+    textAlign: 'center',
+    marginTop: 10,
   },
   backButton: {
     backgroundColor: '#3498db',
@@ -391,9 +594,12 @@ const styles = StyleSheet.create({
   imageContainer: {
     position: 'relative',
   },
-  image: {
+  imageBackground: {
     width: windowWidth,
     height: 200,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   favoriteButton: {
     position: 'absolute',
@@ -457,20 +663,36 @@ const styles = StyleSheet.create({
     color: '#333',
     flex: 1,
   },
-  sectionContainer: {
-    padding: 15,
+  tabContainer: {
+    flexDirection: 'row',
     backgroundColor: '#fff',
-    marginTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 15,
-    color: '#333',
+  tab: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activeTab: {
+    borderBottomWidth: 2,
+    borderBottomColor: '#3498db',
+  },
+  tabText: {
+    fontSize: 14,
+    color: '#888',
+  },
+  activeTabText: {
+    color: '#3498db',
+    fontWeight: '600',
+  },
+  contentContainer: {
+    flex: 1,
+  },
+  sectionContainer: {
+    padding: 15,
+    backgroundColor: '#fff',
   },
   serviceItem: {
     flexDirection: 'row',

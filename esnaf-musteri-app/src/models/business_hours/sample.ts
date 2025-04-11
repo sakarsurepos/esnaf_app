@@ -201,5 +201,76 @@ export const sampleBusinessHours: Tables<'business_hours'>[] = [
     open_time: null,
     close_time: null,
     is_closed: true
+  },
+
+  // Ace Tenis Kulübü (Pazartesi)
+  {
+    id: 'hours-uuid-22',
+    business_id: 'business-uuid-4',
+    branch_id: 'branch-uuid-4',
+    day_of_week: 1,
+    open_time: '08:00',
+    close_time: '22:00',
+    is_closed: false
+  },
+  // Ace Tenis Kulübü (Salı)
+  {
+    id: 'hours-uuid-23',
+    business_id: 'business-uuid-4',
+    branch_id: 'branch-uuid-4',
+    day_of_week: 2,
+    open_time: '08:00',
+    close_time: '22:00',
+    is_closed: false
+  },
+  // Ace Tenis Kulübü (Çarşamba)
+  {
+    id: 'hours-uuid-24',
+    business_id: 'business-uuid-4',
+    branch_id: 'branch-uuid-4',
+    day_of_week: 3,
+    open_time: '08:00',
+    close_time: '22:00',
+    is_closed: false
+  },
+  // Ace Tenis Kulübü (Perşembe)
+  {
+    id: 'hours-uuid-25',
+    business_id: 'business-uuid-4',
+    branch_id: 'branch-uuid-4',
+    day_of_week: 4,
+    open_time: '08:00',
+    close_time: '22:00',
+    is_closed: false
+  },
+  // Ace Tenis Kulübü (Cuma)
+  {
+    id: 'hours-uuid-26',
+    business_id: 'business-uuid-4',
+    branch_id: 'branch-uuid-4',
+    day_of_week: 5,
+    open_time: '08:00',
+    close_time: '22:00',
+    is_closed: false
+  },
+  // Ace Tenis Kulübü (Cumartesi)
+  {
+    id: 'hours-uuid-27',
+    business_id: 'business-uuid-4',
+    branch_id: 'branch-uuid-4',
+    day_of_week: 6,
+    open_time: '09:00',
+    close_time: '21:00',
+    is_closed: false
+  },
+  // Ace Tenis Kulübü (Pazar)
+  {
+    id: 'hours-uuid-28',
+    business_id: 'business-uuid-4',
+    branch_id: 'branch-uuid-4',
+    day_of_week: 0,
+    open_time: '09:00',
+    close_time: '21:00',
+    is_closed: false
   }
 ]; 

@@ -1,4 +1,5 @@
 import { NavigatorScreenParams } from '@react-navigation/native';
+import { ResourceType } from "../models/resources";
 
 export type AuthStackParamList = {
   Login: undefined;
@@ -29,9 +30,36 @@ export type ServiceDiscoveryStackParamList = {
 };
 
 export type AppointmentStackParamList = {
+  Appointment: undefined;
+  CreateAppointment: { serviceId?: string; businessId?: string };
   AppointmentList: undefined;
   AppointmentDetail: { appointmentId: string };
-  CreateAppointment: { serviceId?: string; businessId?: string };
+  AppointmentSummary: any;
+  ResourceSelection: {
+    businessId: string;
+    resourceType: ResourceType;
+    startTime: string;
+    endTime?: string;
+    serviceId: string;
+    appointmentParams: any;
+    multiSelect?: boolean;
+  };
+  Payment: {
+    serviceName: string;
+    serviceId: string;
+    businessId: string;
+    businessName: string;
+    branchId?: string;
+    staffId: string;
+    staffName: string;
+    appointmentTime: string;
+    locationType: 'business' | 'address';
+    address?: string;
+    customerNote?: string;
+    totalPrice: number;
+    depositAmount: number;
+    isFullPayment: boolean;
+  };
 };
 
 export type ProfileStackParamList = {
@@ -45,12 +73,18 @@ export type ProfileStackParamList = {
   WriteReview: { orderId: string; businessName: string };
 };
 
+export type CampaignStackParamList = {
+  Campaigns: undefined;
+  CampaignDetail: { campaignId: string };
+};
+
 export type MainTabParamList = {
   HomeTab: NavigatorScreenParams<HomeStackParamList>;
   Search: NavigatorScreenParams<ServiceDiscoveryStackParamList>;
-  Appointments: NavigatorScreenParams<AppointmentStackParamList>;
+  Transactions: NavigatorScreenParams<AppointmentStackParamList>;
   Favorites: undefined;
   Account: NavigatorScreenParams<ProfileStackParamList>;
+  Campaigns: NavigatorScreenParams<CampaignStackParamList>;
 };
 
 export type RootStackParamList = {

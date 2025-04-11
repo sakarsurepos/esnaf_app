@@ -5,6 +5,7 @@ import HomeNavigator from './HomeNavigator';
 import ProfileNavigator from './ProfileNavigator';
 import ServiceNavigator from './ServiceNavigator';
 import AppointmentNavigator from './AppointmentNavigator';
+import CampaignNavigator from './CampaignNavigator';
 import { View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -14,6 +15,14 @@ const PlaceholderScreen = ({ route }: any) => (
     <Text style={{ fontSize: 18, fontWeight: 'bold' }}>
       {route.name} Ekranı (Yapım Aşamasında)
     </Text>
+  </View>
+);
+
+// İşlemler (Transactions) için geçici ekran (Randevular ve satın alınan hizmetleri birleştirecek)
+const TransactionsScreen = () => (
+  <View style={{ flex: 1 }}>
+    {/* Bu ekran, AppointmentNavigator.tsx içinde tam olarak geliştirilebilir */}
+    <AppointmentNavigator />
   </View>
 );
 
@@ -31,12 +40,14 @@ const MainTabNavigator = () => {
             iconName = focused ? 'home' : 'home-outline';
           } else if (route.name === 'Search') {
             iconName = focused ? 'search' : 'search-outline';
-          } else if (route.name === 'Appointments') {
-            iconName = focused ? 'calendar' : 'calendar-outline';
+          } else if (route.name === 'Transactions') {
+            iconName = focused ? 'receipt' : 'receipt-outline';
           } else if (route.name === 'Favorites') {
             iconName = focused ? 'heart' : 'heart-outline';
           } else if (route.name === 'Account') {
             iconName = focused ? 'person' : 'person-outline';
+          } else if (route.name === 'Campaigns') {
+            iconName = focused ? 'pricetag' : 'pricetag-outline';
           } else {
             iconName = 'alert-circle-outline';
           }
@@ -63,10 +74,17 @@ const MainTabNavigator = () => {
         }}
       />
       <Tab.Screen 
-        name="Appointments" 
+        name="Transactions" 
         component={AppointmentNavigator}
         options={{ 
-          title: 'Randevular',
+          title: 'İşlemler',
+        }}
+      />
+      <Tab.Screen 
+        name="Campaigns" 
+        component={CampaignNavigator}
+        options={{ 
+          title: 'Kampanyalar',
         }}
       />
       <Tab.Screen 

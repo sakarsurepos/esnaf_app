@@ -1,8 +1,10 @@
 import supabase, { getUser, getBusiness, getService, getAppointment } from './supabase';
-import { sampleUsers, sampleBusinesses, sampleServices, sampleAppointments, sampleServiceCategories, sampleFavorites, sampleAddresses, samplePaymentMethods, sampleStaffMembers, sampleStaffProfiles, sampleBusinessHours } from '../models';
+import { sampleUsers, sampleBusinesses, sampleServices, sampleAppointments, sampleServiceCategories, sampleFavorites, sampleAddresses, samplePaymentMethods, sampleStaffMembers, sampleStaffProfiles, sampleBusinessHours, sampleCampaigns } from '../models';
 import { Tables } from '../types/supabase';
 import { PaymentMethod } from '../models/payment_methods/sample';
 import { StaffProfileInfo } from '../models/staff_members/sample';
+import { ExtendedServiceCategory } from "../models/service_categories/types";
+import { Campaign } from '../models/campaigns/types';
 
 // Geliştirme modunda örnek verileri kullanıp kullanmayacağımızı belirleyen değişken
 const USE_MOCK_DATA = process.env.USE_MOCK_DATA === 'true';
@@ -86,13 +88,16 @@ export const getAllServices = async () => {
 // HİZMET KATEGORİLERİ
 export const getAllServiceCategories = async () => {
   if (useMockData()) {
-    return { 
-      data: sampleServiceCategories, 
-      error: null 
+    return {
+      data: sampleServiceCategories,
+      error: null
     };
   }
   
-  return await supabase.from('service_categories').select('*');
+  return {
+    data: sampleServiceCategories,
+    error: null
+  };
 };
 
 // RANDEVU İŞLEMLERİ
@@ -143,9 +148,18 @@ export const createAppointment = async (appointmentData: {
   location_type: 'business' | 'address';
   address?: string;
   address_id?: string | null;
+  customer_id?: string;
   customer_note?: string;
   status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
   total_price: number;
+  payment_method_id?: string;
+  payment_amount?: number;
+  is_full_payment?: boolean;
+  resources?: { // Seçilen kaynaklar (kort, raket vb.)
+    resource_ids: string[];
+    start_time?: string; // Belirtilmezse appointment_time kullanılır
+    end_time?: string; // Belirtilmezse hizmetin süresine göre hesaplanır
+  };
 }) => {
   // Şu anda oturum açmış kullanıcı ID'sini al
   const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -168,7 +182,7 @@ export const createAppointment = async (appointmentData: {
     const mockAppointment = {
       id: `appointment-uuid-${Date.now()}`,
       service_id: appointmentData.service_id,
-      customer_id: user.id,
+      customer_id: appointmentData.customer_id || user.id,
       business_id: appointmentData.business_id,
       branch_id: appointmentData.branch_id,
       staff_id: appointmentData.staff_id,
@@ -179,11 +193,23 @@ export const createAppointment = async (appointmentData: {
       status: appointmentData.status,
       customer_note: appointmentData.customer_note || '',
       total_price: appointmentData.total_price,
+      payment_method_id: appointmentData.payment_method_id || null,
+      payment_amount: appointmentData.payment_amount || 0,
+      is_full_payment: appointmentData.is_full_payment || false,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
     
     console.log('Mock randevu oluşturuldu:', mockAppointment);
+    
+    // Eğer kaynaklar (resources) belirtilmişse, bunları da kaydet
+    if (appointmentData.resources && appointmentData.resources.resource_ids.length > 0) {
+      // Kaynak rezervasyonlarını oluşturma işlemleri için resourceService'i kullanacağız
+      // Bu kısım gerçek uygulamada ayrı bir serviste olacak
+      console.log('Seçilen kaynaklar:', appointmentData.resources.resource_ids);
+      
+      // Gerçek uygulama için bu kaynakları rezerve etmek için resourceService kullanılabilir
+    }
     
     // Mock gecikme oluşturarak asenkron çağrı davranışını simüle et
     return new Promise(resolve => {
@@ -197,16 +223,70 @@ export const createAppointment = async (appointmentData: {
   }
   
   // Gerçek Supabase çağrısı
-  return await supabase
+  const { resources, ...appointmentParams } = appointmentData; // resources'ı ayır
+  
+  // Önce randevuyu oluştur
+  const { data: createdAppointment, error: appointmentError } = await supabase
     .from('appointments')
     .insert({
-      ...appointmentData,
+      ...appointmentParams,
       customer_id: user.id,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     })
     .select()
     .single();
+    
+  if (appointmentError || !createdAppointment) {
+    return { data: null, error: appointmentError };
+  }
+  
+  // Eğer kaynaklar belirtilmişse, kaynak rezervasyonlarını oluştur
+  if (resources && resources.resource_ids.length > 0) {
+    const appointmentId = createdAppointment.id;
+    const startTime = resources.start_time || createdAppointment.appointment_time;
+    
+    // Bitiş zamanını hesapla (servis süresine göre)
+    let endTime = resources.end_time;
+    if (!endTime) {
+      // Servis süresini al ve bitiş zamanını hesapla
+      const { data: serviceData } = await getServiceData(createdAppointment.service_id);
+      if (serviceData) {
+        const startDate = new Date(startTime);
+        const durationMinutes = serviceData.duration_minutes || 60; // Varsayılan 1 saat
+        const endDate = new Date(startDate.getTime() + durationMinutes * 60000);
+        endTime = endDate.toISOString();
+      } else {
+        // Servis bilgisi bulunamazsa, varsayılan olarak 1 saat ekle
+        const startDate = new Date(startTime);
+        const endDate = new Date(startDate.getTime() + 60 * 60000);
+        endTime = endDate.toISOString();
+      }
+    }
+    
+    // Her kaynak için rezervasyon oluştur
+    const resourceReservationPromises = resources.resource_ids.map(resourceId => 
+      supabase
+        .from('resource_reservations')
+        .insert({
+          resource_id: resourceId,
+          appointment_id: appointmentId,
+          start_time: startTime,
+          end_time: endTime,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+    );
+    
+    try {
+      await Promise.all(resourceReservationPromises);
+    } catch (error) {
+      console.error('Kaynak rezervasyonu oluşturma hatası:', error);
+      // Hata durumunda bile randevuyu dön, ama loglama yap
+    }
+  }
+  
+  return { data: createdAppointment, error: null };
 };
 
 // FAVORİ İŞLEMLERİ
@@ -804,6 +884,28 @@ export const getBusinessReviews = async (businessId: string) => {
   // Gerçek uygulamada burada business_reviews tablosundan veri çekilecek
   console.log('Mock: getBusinessReviews çağrıldı');
   return { data: [], error: null };
+};
+
+// KAMPANYA İŞLEMLERİ
+export const getAllCampaigns = async () => {
+  if (useMockData()) {
+    // Aktif ve öne çıkan kampanyaları filtrele
+    const activeCampaigns = sampleCampaigns.filter(
+      campaign => campaign.status === 'active' && campaign.isFeatured
+    );
+    
+    return {
+      data: activeCampaigns,
+      error: null
+    };
+  }
+  
+  // Gerçek uygulamada Supabase'den kampanyaları getir
+  return await supabase
+    .from('campaigns')
+    .select('*')
+    .eq('status', 'active')
+    .eq('is_featured', true);
 };
 
 // Geliştirici bilgisi

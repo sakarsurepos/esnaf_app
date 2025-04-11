@@ -8,14 +8,16 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  SafeAreaView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { ProfileStackParamList } from '../../navigation/types';
 import { useAuth } from '../../contexts/AuthContext';
 import { getUserData, getUserAddresses, getUserPaymentMethods, getUserAppointments, getBusinessData, getServiceData } from '../../services/dataService';
 import { Tables } from '../../types/supabase';
+import { Colors } from '../../constants/Colors';
 
 type ProfileScreenNavigationProp = NativeStackNavigationProp<ProfileStackParamList, 'Profile'>;
 
@@ -135,7 +137,7 @@ const ProfileScreen = () => {
     }
   };
 
-  const handleLogout = async () => {
+  const handleLogout = () => {
     Alert.alert(
       'Çıkış Yap',
       'Hesabınızdan çıkış yapmak istediğinize emin misiniz?',
@@ -161,271 +163,133 @@ const ProfileScreen = () => {
     );
   }
 
+  const menuItems = [
+    {
+      icon: 'time-outline',
+      title: 'Sipariş Geçmişi',
+      onPress: () => Alert.alert('Bilgi', 'Bu özellik yakında eklenecek'),
+      iconBgColor: '#FFE8E8',
+      iconColor: '#FF6B6B',
+    },
+    {
+      icon: 'location-outline',
+      title: 'Adreslerim',
+      onPress: () => navigation.navigate('AddressManagement'),
+      iconBgColor: '#E4F3FF',
+      iconColor: '#50A8EA',
+    },
+    {
+      icon: 'calendar-outline',
+      title: 'Randevularım',
+      onPress: () => Alert.alert('Bilgi', 'Bu özellik yakında eklenecek'),
+      iconBgColor: '#E6F9F1',
+      iconColor: '#27AE60',
+    },
+    {
+      icon: 'heart-outline',
+      title: 'Favorilerim',
+      onPress: () => Alert.alert('Bilgi', 'Bu özellik yakında eklenecek'),
+      iconBgColor: '#FFEFEB',
+      iconColor: '#FF8C6B',
+    },
+    {
+      icon: 'settings-outline',
+      title: 'Ayarlar',
+      onPress: () => Alert.alert('Bilgi', 'Bu özellik yakında eklenecek'),
+      iconBgColor: '#F0F0F0',
+      iconColor: '#888888',
+    },
+  ];
+
   return (
-    <ScrollView style={styles.container}>
-      {/* Profil Başlığı */}
-      <View style={styles.header}>
-        <View style={styles.profileImageContainer}>
-          <Image 
-            source={{ uri: profile?.avatar_url || 'https://via.placeholder.com/150' }} 
-            style={styles.profileImage} 
-          />
-          <TouchableOpacity 
-            style={styles.editImageButton}
-            onPress={() => Alert.alert('Bilgi', 'Bu özellik şu anda geliştiriliyor.')}
-          >
-            <Ionicons name="camera" size={20} color="#fff" />
-          </TouchableOpacity>
+    <SafeAreaView style={styles.container}>
+      <ScrollView style={styles.scrollContainer}>
+        {/* Profil Bilgileri */}
+        <View style={styles.profileContainer}>
+          <View style={styles.avatarContainer}>
+            <Image 
+              source={{ uri: profile?.avatar_url || 'https://via.placeholder.com/150' }} 
+              style={styles.avatar}
+            />
+          </View>
+          <Text style={styles.userName}>{profile?.firstName} {profile?.lastName}</Text>
+          <View style={styles.contactInfo}>
+            <Text style={styles.userPhone}>{profile?.phone || 'Telefon eklenmemiş'}</Text>
+            <Text style={styles.userEmail}>{profile?.email}</Text>
+          </View>
         </View>
-        <Text style={styles.profileName}>{profile?.firstName} {profile?.lastName}</Text>
-        <Text style={styles.profileEmail}>{profile?.email}</Text>
         
-        <View style={styles.actionsContainer}>
-          <TouchableOpacity 
-            style={styles.actionButton}
-            onPress={() => navigation.navigate('EditProfile')}
+        {/* Menü Öğeleri */}
+        <View style={styles.menuContainer}>
+          {menuItems.map((item, index) => (
+            <TouchableOpacity
+              key={index}
+              style={styles.menuItem}
+              onPress={item.onPress}
+            >
+              <View style={[styles.menuIconContainer, { backgroundColor: item.iconBgColor }]}>
+                <Ionicons name={item.icon} size={22} color={item.iconColor} />
+              </View>
+              <Text style={styles.menuItemText}>{item.title}</Text>
+              <Ionicons name="chevron-forward" size={20} color="#D1D1D6" />
+            </TouchableOpacity>
+          ))}
+
+          {/* Paketlerim */}
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={() => navigation.navigate('UserPackages')}
           >
-            <Ionicons name="create-outline" size={20} color="#3498db" />
-            <Text style={styles.actionButtonText}>Profili Düzenle</Text>
+            <View style={styles.menuItemContent}>
+              <Ionicons name="card" size={24} color={Colors.primary} style={styles.menuItemIcon} />
+              <Text style={styles.menuItemText}>Paketlerim</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={24} color={Colors.grey} />
           </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={styles.actionButton}
+
+          {/* Ayarlar */}
+          <TouchableOpacity
+            style={styles.menuItem}
             onPress={() => navigation.navigate('Settings')}
           >
-            <Ionicons name="settings-outline" size={20} color="#3498db" />
-            <Text style={styles.actionButtonText}>Ayarlar</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Geliştirici Test Ekranı Düğmesi */}
-      {process.env.NODE_ENV === 'development' && (
-        <TouchableOpacity 
-          style={styles.devButton}
-          onPress={() => navigation.navigate('TestDev')}
-        >
-          <Ionicons name="code-working" size={20} color="#fff" />
-          <Text style={styles.devButtonText}>GELİŞTİRİCİ TEST EKRANI</Text>
-        </TouchableOpacity>
-      )}
-
-      {/* Kullanıcı Bilgileri */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Kişisel Bilgiler</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('EditProfile')}>
-            <Ionicons name="create-outline" size={20} color="#3498db" />
-          </TouchableOpacity>
-        </View>
-        
-        <View style={styles.infoItem}>
-          <Ionicons name="call-outline" size={20} color="#666" />
-          <Text style={styles.infoLabel}>Telefon:</Text>
-          <Text style={styles.infoText}>{profile?.phone || 'Ayarlanmadı'}</Text>
-        </View>
-        
-        <View style={styles.infoItem}>
-          <Ionicons name="calendar-outline" size={20} color="#666" />
-          <Text style={styles.infoLabel}>Üyelik Tarihi:</Text>
-          <Text style={styles.infoText}>{profile?.created_at ? new Date(profile.created_at).toLocaleDateString('tr-TR') : 'Bilinmiyor'}</Text>
-        </View>
-      </View>
-
-      {/* Adresler */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Adreslerim</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('AddressManagement')}>
-            <Ionicons name="add-outline" size={22} color="#3498db" />
-          </TouchableOpacity>
-        </View>
-        
-        {addresses.length > 0 ? (
-          addresses.map((address) => (
-            <View key={address.id} style={styles.addressItem}>
-              <View style={styles.addressHeader}>
-                <View style={styles.addressTitle}>
-                  <Text style={styles.addressTitleText}>{address.title}</Text>
-                  {address.is_default && (
-                    <View style={styles.defaultBadge}>
-                      <Text style={styles.defaultBadgeText}>Varsayılan</Text>
-                    </View>
-                  )}
-                </View>
-                <View style={styles.addressActions}>
-                  <TouchableOpacity 
-                    style={styles.addressAction}
-                    onPress={() => navigation.navigate('AddressManagement')}
-                  >
-                    <Ionicons name="create-outline" size={18} color="#3498db" />
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.addressAction}>
-                    <Ionicons name="trash-outline" size={18} color="#e74c3c" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-              <Text style={styles.addressText}>{address.address}</Text>
-              <Text style={styles.addressText}>{address.city}, {address.postal_code}</Text>
+            <View style={styles.menuItemContent}>
+              <Ionicons name="settings-outline" size={24} color={Colors.primary} style={styles.menuItemIcon} />
+              <Text style={styles.menuItemText}>Ayarlar</Text>
             </View>
-          ))
-        ) : (
+            <Ionicons name="chevron-forward" size={24} color={Colors.grey} />
+          </TouchableOpacity>
+        </View>
+        
+        {/* Geliştirici Test Butonu */}
+        {process.env.NODE_ENV === 'development' && (
           <TouchableOpacity 
-            style={styles.emptyListButton}
-            onPress={() => navigation.navigate('AddressManagement')}
+            style={styles.devButton}
+            onPress={() => navigation.navigate('TestDev')}
           >
-            <Text style={styles.emptyListText}>Henüz adres eklenmemiş. Eklemek için tıklayın.</Text>
+            <Ionicons name="code-working" size={20} color="#fff" />
+            <Text style={styles.devButtonText}>GELİŞTİRİCİ TEST EKRANI</Text>
           </TouchableOpacity>
         )}
-      </View>
-
-      {/* Ödeme Yöntemleri */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Ödeme Yöntemlerim</Text>
-          <TouchableOpacity>
-            <Ionicons name="add-outline" size={22} color="#3498db" />
-          </TouchableOpacity>
-        </View>
         
-        {paymentMethods.length > 0 ? (
-          paymentMethods.map((payment) => (
-            <View key={payment.id} style={styles.paymentItem}>
-              <View style={styles.paymentHeader}>
-                <View style={styles.paymentInfo}>
-                  <Ionicons name="card-outline" size={24} color="#666" />
-                  <View style={styles.paymentDetails}>
-                    <Text style={styles.paymentTitle}>{payment.card_type} **** {payment.last_digits}</Text>
-                    <Text style={styles.paymentSubtitle}>Son Kullanma: {payment.expires_at}</Text>
-                  </View>
-                </View>
-                {payment.is_default && (
-                  <View style={styles.defaultBadge}>
-                    <Text style={styles.defaultBadgeText}>Varsayılan</Text>
-                  </View>
-                )}
-              </View>
-              <View style={styles.paymentActions}>
-                <TouchableOpacity style={styles.paymentAction}>
-                  <Ionicons name="create-outline" size={18} color="#3498db" />
-                  <Text style={styles.paymentActionText}>Düzenle</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.paymentAction}>
-                  <Ionicons name="trash-outline" size={18} color="#e74c3c" />
-                  <Text style={styles.paymentActionText}>Sil</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))
-        ) : (
-          <Text style={styles.emptyListText}>Henüz ödeme yöntemi eklenmemiş</Text>
-        )}
-      </View>
-
-      {/* Son Randevular */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Son Randevularım</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Appointments', { screen: 'AppointmentList' })}>
-            <Text style={styles.viewAllText}>Tümünü Gör</Text>
-          </TouchableOpacity>
-        </View>
-        
-        {appointments.length > 0 ? (
-          appointments.map((appointment) => (
-            <TouchableOpacity 
-              key={appointment.id} 
-              style={styles.appointmentItem}
-              onPress={() => navigation.navigate('Appointments', { 
-                screen: 'AppointmentDetail', 
-                params: { appointmentId: appointment.id } 
-              })}
-            >
-              <View style={styles.appointmentHeader}>
-                <Text style={styles.appointmentTitle}>{appointment.business_name}</Text>
-                <View style={[
-                  styles.statusBadge, 
-                  { 
-                    backgroundColor: 
-                      appointment.status === 'confirmed' ? '#2ecc71' : 
-                      appointment.status === 'pending' ? '#f39c12' : 
-                      appointment.status === 'completed' ? '#3498db' : '#e74c3c' 
-                  }
-                ]}>
-                  <Text style={styles.statusText}>
-                    {
-                      appointment.status === 'confirmed' ? 'Onaylandı' : 
-                      appointment.status === 'pending' ? 'Bekliyor' : 
-                      appointment.status === 'completed' ? 'Tamamlandı' : 'İptal Edildi'
-                    }
-                  </Text>
-                </View>
-              </View>
-              <Text style={styles.appointmentService}>{appointment.service_name}</Text>
-              <View style={styles.appointmentDetails}>
-                <View style={styles.appointmentDetail}>
-                  <Ionicons name="calendar-outline" size={16} color="#666" />
-                  <Text style={styles.appointmentDetailText}>
-                    {new Date(appointment.date).toLocaleDateString('tr-TR')}
-                  </Text>
-                </View>
-                <View style={styles.appointmentDetail}>
-                  <Ionicons name="time-outline" size={16} color="#666" />
-                  <Text style={styles.appointmentDetailText}>
-                    {new Date(appointment.date).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
-                  </Text>
-                </View>
-                <View style={styles.appointmentDetail}>
-                  <Ionicons name="cash-outline" size={16} color="#666" />
-                  <Text style={styles.appointmentDetailText}>
-                    {appointment.total_price.toFixed(2)} ₺
-                  </Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-          ))
-        ) : (
-          <Text style={styles.emptyListText}>Henüz randevu oluşturulmamış</Text>
-        )}
-      </View>
-
-      {/* Sipariş Geçmişi */}
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Sipariş Geçmişim</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('OrderHistory')}>
-            <Text style={styles.viewAllText}>Tümünü Gör</Text>
-          </TouchableOpacity>
-        </View>
-        
-        <TouchableOpacity 
-          style={styles.orderHistoryButton}
-          onPress={() => navigation.navigate('OrderHistory')}
-        >
-          <View style={styles.orderHistoryButtonContent}>
-            <Ionicons name="cart-outline" size={24} color="#3498db" />
-            <Text style={styles.orderHistoryButtonText}>Siparişlerimi Görüntüle</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={22} color="#666" />
+        {/* Çıkış Yap */}
+        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <Ionicons name="log-out-outline" size={22} color="#FF3B30" />
+          <Text style={styles.logoutText}>Çıkış Yap</Text>
+          <View style={{flex: 1}} />
+          <Ionicons name="chevron-forward" size={20} color="#D1D1D6" />
         </TouchableOpacity>
-      </View>
-
-      {/* Çıkış Yap Butonu */}
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <Ionicons name="log-out-outline" size={20} color="#fff" />
-        <Text style={styles.logoutButtonText}>Çıkış Yap</Text>
-      </TouchableOpacity>
-      
-      {/* Alt Boşluk */}
-      <View style={styles.bottomSpacer} />
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f8f8',
+    backgroundColor: '#FFFFFF',
+  },
+  scrollContainer: {
+    flex: 1,
   },
   loadingContainer: {
     flex: 1,
@@ -433,284 +297,112 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 10,
+    marginTop: 12,
     fontSize: 16,
-    color: '#666',
+    color: '#8E8E93',
   },
-  header: {
-    backgroundColor: '#fff',
+  profileContainer: {
+    paddingVertical: 24,
     alignItems: 'center',
-    paddingVertical: 20,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
   },
-  profileImageContainer: {
-    position: 'relative',
+  avatarContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#FFE3D9',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 16,
+    overflow: 'hidden',
   },
-  profileImage: {
+  avatar: {
     width: 100,
     height: 100,
     borderRadius: 50,
   },
-  editImageButton: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    backgroundColor: '#3498db',
+  userName: {
+    fontSize: 22,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  contactInfo: {
+    alignItems: 'center',
+  },
+  userEmail: {
+    fontSize: 14,
+    color: '#8E8E93',
+  },
+  userPhone: {
+    fontSize: 14,
+    color: '#8E8E93',
+    marginBottom: 4,
+  },
+  menuContainer: {
+    paddingHorizontal: 16,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    marginBottom: 10,
+    paddingHorizontal: 16,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.08,
+    shadowRadius: 2.22,
+    elevation: 2,
+  },
+  menuIconContainer: {
     width: 36,
     height: 36,
     borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#fff',
+    marginRight: 16,
   },
-  profileName: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  profileEmail: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 16,
-  },
-  actionsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    width: '100%',
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f0f8ff',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    marginHorizontal: 8,
-  },
-  actionButtonText: {
-    color: '#3498db',
-    marginLeft: 8,
-    fontWeight: '500',
-  },
-  section: {
-    backgroundColor: '#fff',
-    marginTop: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: '#eee',
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  infoItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  infoLabel: {
-    fontSize: 16,
-    color: '#666',
-    marginLeft: 8,
-    width: 110,
-  },
-  infoText: {
-    fontSize: 16,
-    color: '#333',
+  menuItemText: {
     flex: 1,
-  },
-  addressItem: {
-    marginBottom: 16,
-    padding: 12,
-    backgroundColor: '#f9f9f9',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#eee',
-  },
-  addressHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  addressTitle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  addressTitleText: {
     fontSize: 16,
-    fontWeight: 'bold',
-    marginRight: 8,
-  },
-  defaultBadge: {
-    backgroundColor: '#e8f4fd',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  defaultBadgeText: {
-    fontSize: 12,
-    color: '#3498db',
-  },
-  addressActions: {
-    flexDirection: 'row',
-  },
-  addressAction: {
-    marginLeft: 12,
-  },
-  addressText: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
-  },
-  paymentItem: {
-    marginBottom: 16,
-    padding: 12,
-    backgroundColor: '#f9f9f9',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#eee',
-  },
-  paymentHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  paymentInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  paymentDetails: {
-    marginLeft: 12,
-  },
-  paymentTitle: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  paymentSubtitle: {
-    fontSize: 14,
-    color: '#666',
-  },
-  paymentActions: {
-    flexDirection: 'row',
-  },
-  paymentAction: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  paymentActionText: {
-    fontSize: 14,
-    color: '#3498db',
-    marginLeft: 4,
-  },
-  appointmentItem: {
-    marginBottom: 16,
-    padding: 12,
-    backgroundColor: '#f9f9f9',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#eee',
-  },
-  appointmentHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  appointmentTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  statusText: {
-    fontSize: 12,
-    color: '#fff',
-    fontWeight: '500',
-  },
-  appointmentService: {
-    fontSize: 14,
-    color: '#333',
-    marginBottom: 8,
-  },
-  appointmentDetails: {
-    flexDirection: 'row',
-  },
-  appointmentDetail: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 16,
-  },
-  appointmentDetailText: {
-    fontSize: 14,
-    color: '#666',
-    marginLeft: 4,
-  },
-  emptyListText: {
-    fontSize: 14,
-    color: '#999',
-    fontStyle: 'italic',
-    textAlign: 'center',
-    marginTop: 8,
-  },
-  viewAllText: {
-    fontSize: 14,
-    color: '#3498db',
+    color: '#1C1C1E',
   },
   logoutButton: {
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#e74c3c',
-    marginHorizontal: 16,
     marginTop: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
+    marginBottom: 32,
+    marginHorizontal: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.08,
+    shadowRadius: 2.22,
+    elevation: 2,
   },
-  logoutButtonText: {
-    color: '#fff',
+  logoutText: {
     fontSize: 16,
-    fontWeight: 'bold',
-    marginLeft: 8,
-  },
-  bottomSpacer: {
-    height: 40,
-  },
-  emptyListButton: {
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#eee',
-    borderRadius: 8,
-    backgroundColor: '#f9f9f9',
-    alignItems: 'center',
+    color: '#FF3B30',
+    marginLeft: 16,
   },
   devButton: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#e74c3c',
+    backgroundColor: '#3498db',
     marginHorizontal: 16,
-    marginVertical: 16,
+    marginTop: 24,
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 12,
   },
   devButtonText: {
     color: '#fff',
@@ -718,26 +410,12 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginLeft: 8,
   },
-  orderHistoryButton: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#eee',
-    borderRadius: 8,
-    backgroundColor: '#fff',
-    marginTop: 8,
-  },
-  orderHistoryButtonContent: {
+  menuItemContent: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  orderHistoryButtonText: {
-    fontSize: 16,
-    color: '#3498db',
-    marginLeft: 8,
-    fontWeight: '500',
+  menuItemIcon: {
+    marginRight: 16,
   },
 });
 

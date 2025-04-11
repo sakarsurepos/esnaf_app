@@ -20,7 +20,7 @@ import { tr } from 'date-fns/locale';
 
 type AppointmentListScreenProps = StackScreenProps<any, 'AppointmentList'>;
 
-type AppointmentTab = 'active' | 'past';
+type AppointmentTab = 'active' | 'past' | 'services';
 
 interface Appointment {
   id: string;
@@ -96,13 +96,17 @@ const AppointmentListScreen: React.FC<AppointmentListScreenProps> = ({ navigatio
         return !isBefore(appointmentDate, now) || appointment.status === 'pending';
       });
       setFilteredAppointments(activeAppointments);
-    } else {
+    } else if (activeTab === 'past') {
       // Geçmiş randevuları filtrele
       const pastAppointments = appointments.filter(appointment => {
         const appointmentDate = parseISO(appointment.appointment_time);
         return isBefore(appointmentDate, now) && appointment.status !== 'pending';
       });
       setFilteredAppointments(pastAppointments);
+    } else if (activeTab === 'services') {
+      // Satın alınan hizmetleri göster
+      // Burada gerçek uygulama için satın alınan hizmet verilerini çekebilirsiniz
+      setFilteredAppointments([]); // Şimdilik boş bir liste gösteriyoruz
     }
   }, [activeTab, appointments]);
 
@@ -244,6 +248,43 @@ const AppointmentListScreen: React.FC<AppointmentListScreenProps> = ({ navigatio
     );
   };
 
+  // Satın alınan hizmet öğesi render etme (geliştirme amaçlı boş bir fonksiyon)
+  const renderServiceItem = ({ item }: { item: any }) => {
+    return (
+      <TouchableOpacity
+        style={styles.appointmentCard}
+        onPress={() => navigateToDetail(item.id)}
+      >
+        <View style={styles.appointmentHeader}>
+          <View style={styles.businessInfo}>
+            <Text style={styles.businessName}>{item.business_name}</Text>
+            <View style={[styles.statusBadge, { backgroundColor: COLORS.success }]}>
+              <Text style={styles.statusText}>Satın Alındı</Text>
+            </View>
+          </View>
+          <Text style={styles.price}>{item.price} TL</Text>
+        </View>
+        
+        <View style={styles.appointmentDetails}>
+          <View style={styles.detailRow}>
+            <Icon name="shopping-bag" size={16} color={COLORS.primary} />
+            <Text style={styles.detailText}>{item.service_name}</Text>
+          </View>
+          
+          <View style={styles.detailRow}>
+            <Icon name="store" size={16} color={COLORS.primary} />
+            <Text style={styles.detailText}>{item.business_name}</Text>
+          </View>
+          
+          <View style={styles.detailRow}>
+            <Icon name="event" size={16} color={COLORS.primary} />
+            <Text style={styles.detailText}>Satın Alma Tarihi: {item.purchase_date || 'Belirtilmemiş'}</Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
   // Boş içerik durumu
   const renderEmptyContent = () => (
     <View style={styles.emptyContainer}>
@@ -251,7 +292,9 @@ const AppointmentListScreen: React.FC<AppointmentListScreenProps> = ({ navigatio
       <Text style={styles.emptyText}>
         {activeTab === 'active' 
           ? 'Aktif randevunuz bulunmamaktadır.' 
-          : 'Geçmiş randevunuz bulunmamaktadır.'}
+          : activeTab === 'past' 
+            ? 'Geçmiş randevunuz bulunmamaktadır.'
+            : 'Satın alınan hizmetler bulunmamaktadır.'}
       </Text>
       {activeTab === 'active' && (
         <TouchableOpacity 
@@ -269,7 +312,7 @@ const AppointmentListScreen: React.FC<AppointmentListScreenProps> = ({ navigatio
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Randevularım</Text>
+          <Text style={styles.headerTitle}>İşlemlerim</Text>
         </View>
         
         <View style={styles.loaderContainer}>
@@ -285,7 +328,7 @@ const AppointmentListScreen: React.FC<AppointmentListScreenProps> = ({ navigatio
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Randevularım</Text>
+          <Text style={styles.headerTitle}>İşlemlerim</Text>
         </View>
         
         <View style={styles.errorContainer}>
@@ -305,7 +348,7 @@ const AppointmentListScreen: React.FC<AppointmentListScreenProps> = ({ navigatio
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Randevularım</Text>
+        <Text style={styles.headerTitle}>İşlemlerim</Text>
         <TouchableOpacity 
           style={styles.addButton}
           onPress={() => navigation.navigate('CreateAppointment')}
@@ -332,11 +375,20 @@ const AppointmentListScreen: React.FC<AppointmentListScreenProps> = ({ navigatio
             Geçmiş Randevular
           </Text>
         </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === 'services' && styles.activeTab]}
+          onPress={() => setActiveTab('services')}
+        >
+          <Text style={[styles.tabText, activeTab === 'services' && styles.activeTabText]}>
+            Satın Alınan Hizmetler
+          </Text>
+        </TouchableOpacity>
       </View>
       
       <FlatList
         data={filteredAppointments}
-        renderItem={renderAppointmentItem}
+        renderItem={activeTab === 'services' ? renderServiceItem : renderAppointmentItem}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContainer}
         ListEmptyComponent={renderEmptyContent}

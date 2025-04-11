@@ -18,7 +18,7 @@ import { getAvailableTimeSlots } from '../../services/dataService';
 type DateTimeSelectionProps = {
   serviceId: string;
   businessId: string;
-  staffId: string;
+  staffId?: string;  // Opsiyonel yap
   onSelect: (dateTime: { date: Date; time: string }) => void;
   onBack: () => void;
 };
@@ -69,12 +69,21 @@ export const DateTimeSelection: React.FC<DateTimeSelectionProps> = ({
       setLoadingTimeSlots(true);
       setAvailableTimeSlots([]);
       try {
-        const timeSlotsData = await getAvailableTimeSlots(businessId, serviceId, selectedDate, staffId);
+        // Personel ID'si yoksa (kaynak rezervasyonu durumunda) farklı bir API çağrısı yapılabilir
+        // veya mevcut API staffId olmadan çağrılabilir
+        const timeSlotsData = await getAvailableTimeSlots(
+          businessId, 
+          serviceId, 
+          selectedDate, 
+          staffId || 'default-staff-id'  // staffId yoksa varsayılan ID kullan
+        );
         setAvailableTimeSlots(timeSlotsData as string[]);
         setLoadingTimeSlots(false);
       } catch (err) {
         console.error('Zaman dilimleri yüklenirken hata:', err);
-        setError('Personelin uygun zaman dilimleri yüklenirken bir hata oluştu');
+        setError(staffId 
+          ? 'Personelin uygun zaman dilimleri yüklenirken bir hata oluştu' 
+          : 'Uygun zaman dilimleri yüklenirken bir hata oluştu');
         setLoadingTimeSlots(false);
       }
     };

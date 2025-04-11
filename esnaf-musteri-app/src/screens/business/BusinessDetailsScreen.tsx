@@ -30,6 +30,17 @@ import { Tables } from '../../types/supabase';
 import { StaffProfileInfo } from '../../models/staff_members/sample';
 import * as Location from 'expo-location';
 import MapView, { Marker } from 'react-native-maps';
+import PaymentPolicyBadge from '../../components/PaymentPolicyBadge';
+import PaymentPolicyModal from '../../components/PaymentPolicyModal';
+import { sampleBusinessSettings } from '../../models';
+import { getServicePaymentPolicy, Service } from '../../models/services/types';
+
+// Genişletilmiş hizmet tipi
+interface EnrichedService extends Service {
+  paymentPolicy: 'free_booking' | 'deposit_required' | 'full_payment_required';
+  depositRate: number;
+  isCustomPolicy: boolean;
+}
 
 type BusinessDetailsRouteProp = RouteProp<HomeStackParamList, 'BusinessDetails'>;
 type BusinessDetailsNavigationProp = NativeStackNavigationProp<HomeStackParamList>;
@@ -40,7 +51,7 @@ const BusinessDetailsScreen = () => {
   const { businessId } = route.params;
 
   const [business, setBusiness] = useState<Tables<'businesses'> | null>(null);
-  const [services, setServices] = useState<Tables<'services'>[]>([]);
+  const [services, setServices] = useState<EnrichedService[]>([]);
   const [reviews, setReviews] = useState<BusinessReview[]>([]);
   const [staff, setStaff] = useState<Tables<'staff_members'>[]>([]);
   const [staffProfiles, setStaffProfiles] = useState<StaffProfileInfo[]>([]);
@@ -53,6 +64,7 @@ const BusinessDetailsScreen = () => {
   const [isFavorite, setIsFavorite] = useState(false);
   const [activeTab, setActiveTab] = useState<'services' | 'staff' | 'reviews' | 'info'>('services');
   const [businessLocation, setBusinessLocation] = useState<{latitude: number, longitude: number} | null>(null);
+  const [showPolicyModal, setShowPolicyModal] = useState(false);
 
   // Veri yükleme fonksiyonu
   const loadData = async () => {
@@ -78,10 +90,27 @@ const BusinessDetailsScreen = () => {
         } else {
           // İşletmeye ait hizmetleri filtrele
           if (allServices) {
-            const businessServices = allServices.filter(
-              service => service.business_id === businessId
-            );
-            setServices(businessServices);
+            // İşletme ayarlarını bul
+            const businessSettings = sampleBusinessSettings.find(
+              bs => bs.business_id === businessId
+            ) || sampleBusinessSettings[0]; // Varsayılan olarak ilk ayarı kullan
+            
+            // Hizmetlere ödeme politikası bilgisini ekle
+            const enrichedServices = allServices
+              .filter(service => service.business_id === businessId)
+              .map(service => {
+                // Ödeme politikası bilgisini getir
+                const { paymentPolicy, depositRate, isCustomPolicy } = getServicePaymentPolicy(service, businessSettings);
+                
+                return {
+                  ...service,
+                  paymentPolicy,
+                  depositRate,
+                  isCustomPolicy
+                };
+              });
+              
+            setServices(enrichedServices);
           }
         }
 
@@ -208,7 +237,7 @@ const BusinessDetailsScreen = () => {
 
   // Randevu alma fonksiyonu
   const handleBookAppointment = (serviceId: string) => {
-    navigation.navigate('Appointments', {
+    navigation.navigate('Transactions', {
       screen: 'CreateAppointment',
       params: { serviceId }
     });
@@ -367,10 +396,31 @@ const BusinessDetailsScreen = () => {
                   <View style={styles.serviceInfo}>
                     <Text style={styles.serviceName}>{service.title}</Text>
                     <Text style={styles.serviceDescription}>{service.description}</Text>
+                    
                     <View style={styles.serviceDetails}>
-                      <Text style={styles.servicePrice}>{service.price.toFixed(2)} ₺</Text>
-                      <Text style={styles.serviceDuration}>{service.duration_minutes} dk</Text>
+                      <View style={styles.detailRow}>
+                        <Ionicons name="cash-outline" size={16} color="#3498db" style={styles.detailIcon} />
+                        <Text style={styles.servicePrice}>{service.price.toFixed(2)} ₺</Text>
+                      </View>
+                      
+                      <View style={styles.detailRow}>
+                        <Ionicons name="time-outline" size={16} color="#3498db" style={styles.detailIcon} />
+                        <Text style={styles.serviceDuration}>{service.duration_minutes || 30} dk</Text>
+                      </View>
                     </View>
+                    
+                    {/* Ödeme Politikası Rozeti */}
+                    {service.paymentPolicy && (
+                      <View style={styles.policyContainer}>
+                        <PaymentPolicyBadge
+                          paymentPolicy={service.paymentPolicy}
+                          depositRate={service.depositRate || 0}
+                          showInfo={true}
+                          onInfoPress={() => setShowPolicyModal(true)}
+                          style={styles.policyBadge}
+                        />
+                      </View>
+                    )}
                   </View>
                   <TouchableOpacity 
                     style={styles.bookButton}
@@ -542,6 +592,12 @@ const BusinessDetailsScreen = () => {
           </View>
         )}
       </ScrollView>
+      
+      {/* Ödeme Politikası Modal */}
+      <PaymentPolicyModal 
+        visible={showPolicyModal}
+        onClose={() => setShowPolicyModal(false)}
+      />
     </View>
   );
 };
@@ -551,7 +607,7 @@ const windowWidth = Dimensions.get('window').width;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f8f8',
+    backgroundColor: '#fff',
   },
   loadingContainer: {
     flex: 1,
@@ -719,6 +775,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  detailIcon: {
+    marginRight: 5,
+  },
   servicePrice: {
     fontSize: 15,
     fontWeight: 'bold',
@@ -774,6 +837,149 @@ const styles = StyleSheet.create({
   reviewDate: {
     fontSize: 12,
     color: '#888',
+  },
+  policyContainer: {
+    marginTop: 5,
+  },
+  policyBadge: {
+    padding: 5,
+  },
+  staffItem: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  staffHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  staffImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginRight: 10,
+  },
+  staffTitleContainer: {
+    flex: 1,
+  },
+  staffName: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 5,
+  },
+  staffPosition: {
+    fontSize: 14,
+    color: '#666',
+  },
+  staffRatingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 5,
+  },
+  staffRating: {
+    marginLeft: 5,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  staffReviewCount: {
+    fontSize: 14,
+    color: '#666',
+    marginLeft: 5,
+  },
+  staffExpertise: {
+    fontSize: 14,
+    color: '#444',
+    marginBottom: 8,
+  },
+  staffAbout: {
+    fontSize: 14,
+    color: '#666',
+  },
+  staffStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 5,
+  },
+  staffStatItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  staffStatText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  infoSection: {
+    marginBottom: 15,
+  },
+  infoSectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  mapContainer: {
+    height: 200,
+    marginBottom: 10,
+  },
+  map: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  openMapButton: {
+    backgroundColor: '#3498db',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 5,
+    alignItems: 'center',
+  },
+  openMapButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  hourItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 5,
+  },
+  dayName: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  hourText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  closedText: {
+    fontSize: 14,
+    color: '#e74c3c',
+    fontWeight: '600',
+  },
+  boldText: {
+    fontWeight: 'bold',
+  },
+  reviewSummary: {
+    alignItems: 'center',
+    marginBottom: 20,
+    padding: 15,
+    backgroundColor: '#f9f9f9',
+    borderRadius: 8,
+  },
+  reviewRatingLarge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 5,
+  },
+  reviewRatingNumber: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
+    marginRight: 5,
+  },
+  reviewRatingText: {
+    fontSize: 14,
+    color: '#666',
   },
 });
 

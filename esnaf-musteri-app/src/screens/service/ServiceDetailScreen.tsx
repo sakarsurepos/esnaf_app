@@ -17,6 +17,11 @@ import { ServiceDiscoveryStackParamList } from '../../navigation/types';
 import { Ionicons } from '@expo/vector-icons';
 import { getServiceData, getBusinessData } from '../../services/dataService';
 import { Tables } from '../../types/supabase';
+import { getServiceById, getBusinessById } from '../../services/dataService';
+import { sampleServices, sampleBusinessSettings } from '../../models';
+import { getServicePaymentPolicy } from '../../models/services/types';
+import PaymentPolicyBadge from '../../components/PaymentPolicyBadge';
+import PaymentPolicyModal from '../../components/PaymentPolicyModal';
 
 type NavigationProp = NativeStackNavigationProp<ServiceDiscoveryStackParamList, 'ServiceDetail'>;
 type RouteProps = RouteProp<ServiceDiscoveryStackParamList, 'ServiceDetail'>;
@@ -66,6 +71,9 @@ interface ServiceDetail {
   duration: number;
   categoryId: string;
   categoryName: string;
+  paymentPolicy?: 'free_booking' | 'deposit_required' | 'full_payment_required';
+  depositRate?: number;
+  isCustomPolicy?: boolean;
 }
 
 const ServiceDetailScreen = () => {
@@ -78,25 +86,34 @@ const ServiceDetailScreen = () => {
   const [isFavorite, setIsFavorite] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [showImageModal, setShowImageModal] = useState(false);
+  const [showPolicyModal, setShowPolicyModal] = useState(false);
 
   // Models'ten hizmet detayını yükleyecek fonksiyon
   const loadServiceDetail = async () => {
     setLoading(true);
     try {
-      const { data: serviceData, error: serviceError } = await getServiceData(serviceId);
+      // Servisi getir
+      const { data: serviceData, error: serviceError } = await getServiceById(serviceId);
       
       if (serviceError || !serviceData) {
-        throw new Error('Hizmet detayı yüklenirken bir hata oluştu');
+        throw new Error('Hizmet bulunamadı');
       }
       
-      // İşletme bilgilerini de alalım
-      const { data: businessData, error: businessError } = await getBusinessData(serviceData.business_id);
+      // İşletmeyi getir
+      const { data: businessData, error: businessError } = await getBusinessById(serviceData.business_id);
       
       if (businessError || !businessData) {
-        throw new Error('İşletme bilgileri yüklenirken bir hata oluştu');
+        throw new Error('İşletme bilgileri bulunamadı');
       }
       
-      // Hizmet detayı nesnesini oluşturalım
+      // İşletme ayarlarını bul
+      const businessSettings = sampleBusinessSettings.find(
+        bs => bs.business_id === serviceData.business_id
+      ) || sampleBusinessSettings[0]; // Eğer bulunamazsa varsayılan olarak ilk ayarı kullan
+      
+      // Ödeme politikası bilgisini getir
+      const { paymentPolicy, depositRate, isCustomPolicy } = getServicePaymentPolicy(serviceData, businessSettings);
+      
       const serviceDetail: ServiceDetail = {
         id: serviceData.id,
         title: serviceData.title,
@@ -117,7 +134,10 @@ const ServiceDetailScreen = () => {
         discount: 0, // Örnek değer
         duration: serviceData.duration_minutes,
         categoryId: serviceData.category_id,
-        categoryName: 'Hizmet Kategorisi' // Kategori adı için ekstra sorgu gerekebilir
+        categoryName: 'Hizmet Kategorisi', // Kategori adı için ekstra sorgu gerekebilir
+        paymentPolicy,
+        depositRate,
+        isCustomPolicy
       };
       
       setService(serviceDetail);
@@ -319,6 +339,65 @@ const ServiceDetailScreen = () => {
     );
   };
 
+  const renderPriceAndBookingSection = () => {
+    if (!service) return null;
+    
+    return (
+      <View style={styles.priceBookingSection}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Fiyat ve Rezervasyon</Text>
+        </View>
+        
+        <View style={styles.priceContainer}>
+          {service.discount > 0 ? (
+            <>
+              <Text style={styles.originalPrice}>
+                {service.price + service.discount} TL
+              </Text>
+              <Text style={styles.discountedPrice}>
+                {service.price} TL
+              </Text>
+              <View style={styles.discountBadge}>
+                <Text style={styles.discountText}>
+                  %{Math.round((service.discount / (service.price + service.discount)) * 100)} İndirim
+                </Text>
+              </View>
+            </>
+          ) : (
+            <Text style={styles.price}>{service.price} TL</Text>
+          )}
+        </View>
+        
+        <View style={styles.durationContainer}>
+          <Ionicons name="time-outline" size={18} color="#777" />
+          <Text style={styles.duration}>
+            {service.duration} dakika
+          </Text>
+        </View>
+        
+        {service.paymentPolicy && (
+          <View style={styles.policyContainer}>
+            <Text style={styles.policyLabel}>Ödeme Politikası:</Text>
+            <PaymentPolicyBadge
+              paymentPolicy={service.paymentPolicy}
+              depositRate={service.depositRate || 0}
+              showInfo={true}
+              onInfoPress={() => setShowPolicyModal(true)}
+              style={styles.policyBadge}
+            />
+          </View>
+        )}
+        
+        <TouchableOpacity
+          style={styles.bookingButton}
+          onPress={handleBooking}
+        >
+          <Text style={styles.bookingButtonText}>Randevu Al</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
   if (loading || !service) {
     return (
       <View style={styles.loadingContainer}>
@@ -326,9 +405,6 @@ const ServiceDetailScreen = () => {
       </View>
     );
   }
-
-  const discountedPrice = service.discount ? 
-    service.price * (1 - service.discount / 100) : service.price;
 
   return (
     <View style={styles.container}>
@@ -380,7 +456,7 @@ const ServiceDetailScreen = () => {
                 <Ionicons name="pricetag-outline" size={20} color="#777" />
                 <Text style={styles.detailValue}>
                   {service.discount > 0 ? (
-                    <Text style={styles.discountedPrice}>{discountedPrice.toFixed(0)} ₺</Text>
+                    <Text style={styles.discountedPrice}>{service.price} ₺</Text>
                   ) : (
                     `${service.price} ₺`
                   )}
@@ -402,27 +478,15 @@ const ServiceDetailScreen = () => {
       </ScrollView>
       
       <View style={styles.footer}>
-        <View style={styles.priceContainer}>
-          <Text style={styles.priceLabel}>Fiyat</Text>
-          {service.discount > 0 ? (
-            <View>
-              <Text style={styles.discountPrice}>{discountedPrice.toFixed(0)} ₺</Text>
-              <Text style={styles.priceWithStrike}>{service.price} ₺</Text>
-            </View>
-          ) : (
-            <Text style={styles.priceText}>{service.price} ₺</Text>
-          )}
-        </View>
-        
-        <TouchableOpacity 
-          style={styles.bookButton}
-          onPress={handleBooking}
-        >
-          <Text style={styles.bookButtonText}>Randevu Al</Text>
-        </TouchableOpacity>
+        {renderPriceAndBookingSection()}
       </View>
       
       {renderImageModal()}
+      
+      <PaymentPolicyModal 
+        visible={showPolicyModal}
+        onClose={() => setShowPolicyModal(false)}
+      />
     </View>
   );
 };
@@ -743,6 +807,24 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
+  },
+  priceBookingSection: {
+    marginBottom: 100, // Footer için yer bırakıyoruz
+  },
+  policyContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    marginBottom: 16,
+  },
+  policyLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#555',
+    marginRight: 8,
+  },
+  policyBadge: {
+    // Badge'in kendi stilleri olduğu için ek stil gerekmeyebilir
   },
 });
 

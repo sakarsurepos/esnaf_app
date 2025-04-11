@@ -8,27 +8,29 @@ import {
   Image,
   TextInput,
   ActivityIndicator,
-  Alert
+  Alert,
+  SectionList
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ServiceDiscoveryStackParamList } from '../../navigation/types';
 import { getAllServiceCategories } from '../../services/dataService';
-import { Tables } from '../../types/supabase';
+import { ExtendedServiceCategory, ServiceSubcategory } from '../../models/service_categories/types';
 
 type NavigationProp = NativeStackNavigationProp<ServiceDiscoveryStackParamList, 'Category'>;
 
 // İlgi çeken (öne çıkan) kategori ID'leri
-const FEATURED_CATEGORY_IDS = ['category-uuid-1', 'category-uuid-2', 'category-uuid-3', 'category-uuid-5'];
+const FEATURED_CATEGORY_IDS = ['category-uuid-1', 'category-uuid-2', 'category-uuid-3', 'category-uuid-4'];
 
 const CategoryScreen = () => {
   const navigation = useNavigation<NavigationProp>();
   const [searchQuery, setSearchQuery] = useState('');
-  const [categories, setCategories] = useState<Tables<'service_categories'>[]>([]);
-  const [featuredCategories, setFeaturedCategories] = useState<Tables<'service_categories'>[]>([]);
+  const [categories, setCategories] = useState<ExtendedServiceCategory[]>([]);
+  const [featuredCategories, setFeaturedCategories] = useState<ExtendedServiceCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [expandedCategories, setExpandedCategories] = useState<string[]>([]);
 
   // dataService aracılığıyla kategorileri yükleyen fonksiyon
   const loadCategories = async () => {
@@ -41,10 +43,12 @@ const CategoryScreen = () => {
       }
       
       if (data) {
-        setCategories(data);
+        // ExtendedServiceCategory olarak veriyi işleyeceğiz
+        const extendedData = data as unknown as ExtendedServiceCategory[];
+        setCategories(extendedData);
         
         // Popüler kategorileri filtreleme
-        const featured = data.filter(category => 
+        const featured = extendedData.filter(category => 
           FEATURED_CATEGORY_IDS.includes(category.id)
         );
         setFeaturedCategories(featured);
@@ -65,6 +69,25 @@ const CategoryScreen = () => {
     });
   };
 
+  // Alt Kategori seçimi
+  const handleSubcategorySelect = (subcategoryId: string, subcategoryName: string) => {
+    navigation.navigate('ServiceList', {
+      categoryId: subcategoryId,
+      categoryName: subcategoryName,
+    });
+  };
+
+  // Kategori açılıp kapanma durumu yönetimi
+  const toggleCategoryExpand = (categoryId: string) => {
+    setExpandedCategories(prev => {
+      if (prev.includes(categoryId)) {
+        return prev.filter(id => id !== categoryId);
+      } else {
+        return [...prev, categoryId];
+      }
+    });
+  };
+
   // Arama işlevi
   const handleSearch = () => {
     if (searchQuery.trim()) {
@@ -74,28 +97,72 @@ const CategoryScreen = () => {
 
   // Filtrelenmiş kategoriler
   const filteredCategories = categories.filter(category =>
-    category.name.toLowerCase().includes(searchQuery.toLowerCase())
+    category.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (category.subcategories && category.subcategories.some(sub => 
+      sub.name.toLowerCase().includes(searchQuery.toLowerCase())
+    ))
   );
 
   useEffect(() => {
     loadCategories();
   }, []);
 
-  const renderCategoryItem = ({ item }: { item: Tables<'service_categories'> }) => (
+  const renderSubcategoryItem = (subcategory: ServiceSubcategory, categoryId: string) => (
     <TouchableOpacity
-      style={styles.categoryItem}
-      onPress={() => handleCategorySelect(item.id, item.name)}
+      key={subcategory.id}
+      style={styles.subcategoryItem}
+      onPress={() => handleSubcategorySelect(subcategory.id, subcategory.name)}
     >
-      <View style={styles.categoryImageContainer}>
-        <Ionicons name={item.icon_url as any} size={28} color="#3498db" />
+      <View style={styles.subcategoryIconContainer}>
+        <Ionicons name={subcategory.icon_url as any} size={20} color="#3498db" />
       </View>
       <View style={styles.categoryContent}>
-        <Text style={styles.categoryName}>{item.name}</Text>
-        <Text style={styles.categoryDescription} numberOfLines={1}>{item.description}</Text>
+        <Text style={styles.subcategoryName}>{subcategory.name}</Text>
+        <Text style={styles.categoryDescription} numberOfLines={1}>{subcategory.description}</Text>
       </View>
-      <Ionicons name="chevron-forward" size={20} color="#999" />
+      <Ionicons name="chevron-forward" size={16} color="#999" />
     </TouchableOpacity>
   );
+
+  const renderCategoryItem = ({ item }: { item: ExtendedServiceCategory }) => {
+    const isExpanded = expandedCategories.includes(item.id);
+    const hasSubcategories = item.subcategories && item.subcategories.length > 0;
+
+    return (
+      <View>
+        <TouchableOpacity
+          style={styles.categoryItem}
+          onPress={() => hasSubcategories ? toggleCategoryExpand(item.id) : handleCategorySelect(item.id, item.name)}
+        >
+          <View style={styles.categoryImageContainer}>
+            <Ionicons name={item.icon_url as any} size={28} color="#3498db" />
+          </View>
+          <View style={styles.categoryContent}>
+            <Text style={styles.categoryName}>{item.name}</Text>
+            <Text style={styles.categoryDescription} numberOfLines={1}>{item.description}</Text>
+          </View>
+          {hasSubcategories ? (
+            <Ionicons 
+              name={isExpanded ? "chevron-down" : "chevron-forward"} 
+              size={20} 
+              color="#999" 
+            />
+          ) : (
+            <Ionicons name="chevron-forward" size={20} color="#999" />
+          )}
+        </TouchableOpacity>
+
+        {/* Alt kategoriler (açık durumdaysa) */}
+        {isExpanded && hasSubcategories && (
+          <View style={styles.subcategoriesContainer}>
+            {item.subcategories?.map(subcategory => 
+              renderSubcategoryItem(subcategory, item.id)
+            )}
+          </View>
+        )}
+      </View>
+    );
+  };
 
   const renderFeaturedCategories = () => (
     <View style={styles.featuredSection}>
@@ -324,6 +391,38 @@ const styles = StyleSheet.create({
   categoryDescription: {
     fontSize: 14,
     color: '#777',
+  },
+  subcategoriesContainer: {
+    marginLeft: 20,
+    marginBottom: 10,
+  },
+  subcategoryItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8f8f8',
+    borderRadius: 8,
+    marginTop: 6,
+    marginBottom: 6,
+    padding: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 1,
+    elevation: 1,
+  },
+  subcategoryIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#f2f2f2',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  subcategoryName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#333',
+    marginBottom: 2,
   },
   emptyContainer: {
     marginTop: 50,

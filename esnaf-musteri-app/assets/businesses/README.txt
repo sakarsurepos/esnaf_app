@@ -1,0 +1,1 @@
+İŞLETMELER İÇİN ÖRNEK GÖRSEL

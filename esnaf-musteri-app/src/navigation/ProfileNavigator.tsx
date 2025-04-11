@@ -1,103 +1,47 @@
 import React from 'react';
-import { createStackNavigator } from '@react-navigation/stack';
-import { ProfileStackParamList } from './types';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import ProfileScreen from '../screens/profile/ProfileScreen';
-import EditProfileScreen from '../screens/profile/EditProfileScreen';
 import AddressManagementScreen from '../screens/profile/AddressManagementScreen';
-import OrderHistoryScreen from '../screens/order/OrderHistoryScreen';
-import OrderDetailScreen from '../screens/order/OrderDetailScreen';
-import WriteReviewScreen from '../screens/reviews/WriteReviewScreen';
-import { COLORS } from '../constants';
-import { View, Text } from 'react-native';
+import EditProfileScreen from '../screens/profile/EditProfileScreen';
+import UserPackagesScreen from '../screens/profile/UserPackagesScreen';
 
-// Geçici placeholder bileşenler için
-const PlaceholderScreen = ({ route }: any) => (
-  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-    <Text style={{ fontSize: 18, fontWeight: 'bold' }}>
-      {route.name} Ekranı (Yapım Aşamasında)
-    </Text>
-  </View>
-);
+export type ProfileStackParamList = {
+  Profile: undefined;
+  AddressManagement: undefined;
+  EditProfile: undefined;
+  UserPackages: undefined;
+};
 
-const Stack = createStackNavigator<ProfileStackParamList>();
+const Stack = createNativeStackNavigator<ProfileStackParamList>();
 
 const ProfileNavigator = () => {
   return (
     <Stack.Navigator
       initialRouteName="Profile"
       screenOptions={{
-        headerStyle: {
-          backgroundColor: '#FFFFFF',
-          elevation: 0, // Remove shadow on Android
-          shadowOpacity: 0, // Remove shadow on iOS
-          borderBottomWidth: 1,
-          borderBottomColor: '#f2f2f2',
-        },
-        headerTitleStyle: {
-          fontWeight: '600',
-          fontSize: 18,
-        },
+        headerShown: true,
         headerTitleAlign: 'center',
-        headerBackTitleVisible: false,
       }}
     >
       <Stack.Screen
         name="Profile"
         component={ProfileScreen}
-        options={{
-          title: 'Profilim',
-        }}
-      />
-      <Stack.Screen
-        name="EditProfile"
-        component={EditProfileScreen}
-        options={{
-          title: 'Profili Düzenle',
-        }}
+        options={{ title: 'Profilim' }}
       />
       <Stack.Screen
         name="AddressManagement"
         component={AddressManagementScreen}
-        options={{
-          title: 'Adreslerim',
-        }}
+        options={{ title: 'Adreslerim' }}
       />
       <Stack.Screen
-        name="Settings"
-        component={PlaceholderScreen}
-        options={{
-          title: 'Ayarlar',
-        }}
+        name="EditProfile"
+        component={EditProfileScreen}
+        options={{ title: 'Profili Düzenle' }}
       />
       <Stack.Screen
-        name="TestDev"
-        component={PlaceholderScreen}
-        options={{
-          title: 'Geliştirici Test',
-        }}
-      />
-      <Stack.Screen
-        name="OrderHistory"
-        component={OrderHistoryScreen}
-        options={{
-          title: 'Sipariş Geçmişim',
-        }}
-      />
-      <Stack.Screen
-        name="OrderDetail"
-        component={OrderDetailScreen}
-        options={{
-          title: 'Sipariş Detayı',
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="WriteReview"
-        component={WriteReviewScreen}
-        options={{
-          title: 'Değerlendirme Yaz',
-          headerShown: false,
-        }}
+        name="UserPackages"
+        component={UserPackagesScreen}
+        options={{ title: 'Paketlerim' }}
       />
     </Stack.Navigator>
   );

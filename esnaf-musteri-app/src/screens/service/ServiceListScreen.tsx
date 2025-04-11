@@ -18,6 +18,10 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ServiceDiscoveryStackParamList } from '../../navigation/types';
 import { getAllServices } from '../../services/dataService';
 import { Tables } from '../../types/supabase';
+import PaymentPolicyBadge from '../../components/PaymentPolicyBadge';
+import PaymentPolicyModal from '../../components/PaymentPolicyModal';
+import { getServicePaymentPolicy } from '../../models/services/types';
+import { sampleBusinessSettings } from '../../models';
 
 type ServiceListRouteProp = RouteProp<ServiceDiscoveryStackParamList, 'ServiceList'>;
 type NavigationProp = NativeStackNavigationProp<ServiceDiscoveryStackParamList, 'ServiceList'>;
@@ -26,6 +30,7 @@ interface ServiceWithDetails {
   id: string;
   name: string;
   business_name: string;
+  business_id: string;
   address: string;
   rating: number;
   review_count: number;
@@ -34,6 +39,9 @@ interface ServiceWithDetails {
   distance: number; // metre cinsinden
   is_favorite: boolean;
   tags: string[];
+  paymentPolicy: 'free_booking' | 'deposit_required' | 'full_payment_required';
+  depositRate: number;
+  isCustomPolicy: boolean;
 }
 
 // Fiyat seviyesi gösterimi için yardımcı fonksiyon
@@ -70,6 +78,7 @@ const ServiceListScreen = () => {
   const [sortOption, setSortOption] = useState('recommended');
   const [priceFilter, setPriceFilter] = useState<number[]>([]);
   const [distanceFilter, setDistanceFilter] = useState<number | null>(null);
+  const [showPolicyModal, setShowPolicyModal] = useState(false);
 
   // Hizmetleri yükleyen fonksiyon
   const loadServices = async () => {
@@ -86,19 +95,33 @@ const ServiceListScreen = () => {
         const categoryServices = data.filter(service => service.category_id === categoryId);
         
         // Eksik bilgileri iş mantığı ile ekleyelim
-        const servicesWithDetails: ServiceWithDetails[] = categoryServices.map(service => ({
-          id: service.id,
-          name: service.title,
-          business_name: `İşletme ${service.business_id}`, // Gerçek projede join ile gelecek
-          address: "İstanbul", // Örnek amaçlı
-          rating: 4.5, // Örnek
-          review_count: Math.floor(Math.random() * 100), // Örnek
-          image_url: "https://via.placeholder.com/300",
-          price_level: Math.ceil(service.price / 100), // Fiyata göre seviye (örnek)
-          distance: Math.floor(Math.random() * 5000), // Örnek mesafe
-          is_favorite: false, // Varsayılan olarak favori değil
-          tags: [service.title.split(' ')[0], "Hizmet", categoryName] // Örnek etiketler
-        }));
+        const servicesWithDetails: ServiceWithDetails[] = categoryServices.map(service => {
+          // İşletme ayarlarını bul
+          const businessSettings = sampleBusinessSettings.find(
+            bs => bs.business_id === service.business_id
+          ) || sampleBusinessSettings[0]; // Eğer bulunamazsa varsayılan olarak ilk ayarı kullan
+          
+          // Ödeme politikası bilgisini getir
+          const { paymentPolicy, depositRate, isCustomPolicy } = getServicePaymentPolicy(service, businessSettings);
+          
+          return {
+            id: service.id,
+            name: service.title,
+            business_name: `İşletme ${service.business_id}`, // Gerçek projede join ile gelecek
+            business_id: service.business_id,
+            address: "İstanbul", // Örnek amaçlı
+            rating: 4.5, // Örnek
+            review_count: Math.floor(Math.random() * 100), // Örnek
+            image_url: "https://via.placeholder.com/300",
+            price_level: Math.ceil(service.price / 100), // Fiyata göre seviye (örnek)
+            distance: Math.floor(Math.random() * 5000), // Örnek mesafe
+            is_favorite: false, // Varsayılan olarak favori değil
+            tags: [service.title.split(' ')[0], "Hizmet", categoryName], // Örnek etiketler
+            paymentPolicy,
+            depositRate,
+            isCustomPolicy
+          };
+        });
         
         setServices(servicesWithDetails);
         setFilteredServices(servicesWithDetails);
@@ -388,12 +411,22 @@ const ServiceListScreen = () => {
           <Text style={styles.distance}>{formatDistance(item.distance)}</Text>
         </View>
         
-        <View style={styles.tagsContainer}>
-          {item.tags.map(tag => (
-            <View key={tag} style={styles.tag}>
-              <Text style={styles.tagText}>{tag}</Text>
-            </View>
-          ))}
+        <View style={styles.serviceBottom}>
+          <View style={styles.tagsContainer}>
+            {item.tags.slice(0, 2).map(tag => (
+              <View key={tag} style={styles.tag}>
+                <Text style={styles.tagText}>{tag}</Text>
+              </View>
+            ))}
+          </View>
+          
+          <PaymentPolicyBadge
+            paymentPolicy={item.paymentPolicy}
+            depositRate={item.depositRate}
+            showInfo={true}
+            onInfoPress={() => setShowPolicyModal(true)}
+            style={styles.policyBadge}
+          />
         </View>
       </View>
     </TouchableOpacity>
@@ -454,6 +487,11 @@ const ServiceListScreen = () => {
       />
       
       {renderFilterModal()}
+      
+      <PaymentPolicyModal 
+        visible={showPolicyModal}
+        onClose={() => setShowPolicyModal(false)}
+      />
     </View>
   );
 };
@@ -575,21 +613,31 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#777',
   },
+  serviceBottom: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+  },
   tagsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    flex: 1,
   },
   tag: {
-    backgroundColor: '#f2f2f2',
-    borderRadius: 12,
+    backgroundColor: '#f0f0f0',
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 2,
+    borderRadius: 12,
     marginRight: 6,
     marginBottom: 4,
   },
   tagText: {
     fontSize: 12,
-    color: '#555',
+    color: '#666',
+  },
+  policyBadge: {
+    marginLeft: 'auto',
   },
   emptyContainer: {
     marginTop: 50,

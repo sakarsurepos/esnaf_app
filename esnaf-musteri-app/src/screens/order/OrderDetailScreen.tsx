@@ -403,15 +403,29 @@ const OrderDetailScreen: React.FC<OrderDetailScreenProps> = ({ route, navigation
             <Text style={[styles.actionButtonText, { color: COLORS.error }]}>Sorun Bildir</Text>
           </TouchableOpacity>
           
-          {orderDetail.status === 'delivered' && !reviewLoading && (
+          {!reviewLoading && (
             <TouchableOpacity 
               style={[
                 styles.actionButton, 
-                hasReview ? styles.reviewedButton : styles.reviewButton
+                hasReview ? styles.reviewedButton : styles.reviewButton,
+                orderDetail.status !== 'delivered' ? styles.disabledButton : null
               ]}
-              onPress={goToReviewScreen}
+              onPress={() => {
+                if (orderDetail.status === 'delivered') {
+                  goToReviewScreen();
+                } else {
+                  Alert.alert(
+                    'Bilgi', 
+                    'Değerlendirme yapmak için siparişin teslim edilmiş olması gerekmektedir.'
+                  );
+                }
+              }}
             >
-              <Icon name={hasReview ? "rate-review" : "star"} size={20} color={hasReview ? COLORS.success : "#FFFFFF"} />
+              <Icon 
+                name={hasReview ? "rate-review" : "star"} 
+                size={20} 
+                color={hasReview ? COLORS.success : "#FFFFFF"} 
+              />
               <Text style={hasReview ? styles.reviewedButtonText : styles.reviewButtonText}>
                 {hasReview ? 'Değerlendirmeyi Düzenle' : 'Değerlendirme Yap'}
               </Text>
@@ -707,6 +721,11 @@ const styles = StyleSheet.create({
     color: COLORS.success,
     marginLeft: 8,
   },
+  disabledButton: {
+    backgroundColor: COLORS.lightGray,
+    borderColor: COLORS.lightGray,
+    opacity: 0.7
+  },
   loaderContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -742,7 +761,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: FONTS.medium,
     color: '#FFFFFF',
-  }
+  },
 });
 
 export default OrderDetailScreen; 

@@ -9,10 +9,15 @@ import {
   ActivityIndicator,
   TextInput,
   SafeAreaView,
+  Modal,
 } from 'react-native';
 import { getAllServices, getAllServiceCategories } from '../../services/dataService';
 import { COLORS, FONTS } from '../../constants';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import PaymentPolicyBadge from '../PaymentPolicyBadge';
+import PaymentPolicyModal from '../PaymentPolicyModal';
+import { getServicePaymentPolicy } from '../../models/services/types';
+import { sampleBusinessSettings } from '../../models';
 
 type ServiceSelectionProps = {
   onServiceSelect: (
@@ -36,6 +41,7 @@ const ServiceSelection: React.FC<ServiceSelectionProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [showPolicyModal, setShowPolicyModal] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -62,11 +68,24 @@ const ServiceSelection: React.FC<ServiceSelectionProps> = ({
         throw new Error('Hizmetler yüklenirken bir hata oluştu');
       }
       
-      // Hizmetlere işletme bilgisini ekle
-      const enrichedServices = servicesData?.map(service => ({
-        ...service,
-        businessName: service.business_name || 'İşletme'  // Mock veri için
-      })) || [];
+      // Hizmetlere işletme bilgisini ve ödeme politikası bilgisini ekle
+      const enrichedServices = servicesData?.map(service => {
+        // İşletme ayarlarını bul
+        const businessSettings = sampleBusinessSettings.find(
+          bs => bs.business_id === service.business_id
+        ) || sampleBusinessSettings[0]; // Eğer bulunamazsa varsayılan olarak ilk ayarı kullan
+        
+        // Ödeme politikası bilgisini getir
+        const { paymentPolicy, depositRate, isCustomPolicy } = getServicePaymentPolicy(service, businessSettings);
+        
+        return {
+          ...service,
+          businessName: service.business_name || 'İşletme',  // Mock veri için
+          paymentPolicy,
+          depositRate,
+          isCustomPolicy
+        };
+      }) || [];
       
       setServices(enrichedServices);
       
@@ -162,6 +181,19 @@ const ServiceSelection: React.FC<ServiceSelectionProps> = ({
               <Text style={styles.detailText}>{item.price.toFixed(2)} ₺</Text>
             </View>
           </View>
+          
+          {/* Ödeme Politikası Rozeti */}
+          {item.paymentPolicy && (
+            <View style={styles.policyContainer}>
+              <PaymentPolicyBadge
+                paymentPolicy={item.paymentPolicy}
+                depositRate={item.depositRate}
+                showInfo={true}
+                onInfoPress={() => setShowPolicyModal(true)}
+                style={styles.policyBadge}
+              />
+            </View>
+          )}
         </View>
         
         <Icon name="chevron-right" size={24} color={COLORS.gray} />
@@ -199,56 +231,53 @@ const ServiceSelection: React.FC<ServiceSelectionProps> = ({
       </View>
       
       <View style={styles.searchContainer}>
-        <Icon name="search" size={20} color={COLORS.gray} style={styles.searchIcon} />
+        <Icon name="search" size={24} color={COLORS.gray} style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
           placeholder="Hizmet veya işletme ara..."
           value={searchQuery}
           onChangeText={setSearchQuery}
-          placeholderTextColor={COLORS.lightGray}
         />
+        {searchQuery ? (
+          <TouchableOpacity onPress={() => setSearchQuery('')}>
+            <Icon name="clear" size={24} color={COLORS.gray} />
+          </TouchableOpacity>
+        ) : null}
       </View>
       
-      {categories.length > 0 && (
-        <FlatList
-          data={categories}
-          renderItem={renderCategoryItem}
-          keyExtractor={(item) => item.id}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.categoriesList}
-          contentContainerStyle={styles.categoriesContent}
-        />
-      )}
+      <FlatList
+        horizontal
+        data={categories}
+        keyExtractor={(item) => item.id}
+        renderItem={renderCategoryItem}
+        showsHorizontalScrollIndicator={false}
+        style={styles.categoriesList}
+        contentContainerStyle={styles.categoriesContent}
+      />
       
-      {error ? (
-        <View style={styles.errorContainer}>
-          <Icon name="error-outline" size={48} color={COLORS.error} />
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={loadData}>
-            <Text style={styles.retryButtonText}>Tekrar Dene</Text>
-          </TouchableOpacity>
-        </View>
-      ) : filteredServices.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Icon name="search-off" size={48} color={COLORS.gray} />
-          <Text style={styles.emptyText}>Aramanızla eşleşen hizmet bulunamadı.</Text>
-          <TouchableOpacity style={styles.clearButton} onPress={() => {
-            setSearchQuery('');
-            setSelectedCategory(null);
-          }}>
-            <Text style={styles.clearButtonText}>Filtreleri Temizle</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
+      <Text style={styles.sectionTitle}>Tüm Hizmetler</Text>
+      
+      {filteredServices.length > 0 ? (
         <FlatList
           data={filteredServices}
-          renderItem={renderServiceItem}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.servicesList}
+          renderItem={renderServiceItem}
           showsVerticalScrollIndicator={false}
         />
+      ) : (
+        <View style={styles.noResultsContainer}>
+          <Icon name="search-off" size={64} color={COLORS.gray} />
+          <Text style={styles.noResultsText}>
+            {searchQuery ? 'Aramanızla eşleşen hizmet bulunamadı.' : 'Henüz hizmet bulunmuyor.'}
+          </Text>
+        </View>
       )}
+      
+      {/* Ödeme Politikası Modal */}
+      <PaymentPolicyModal 
+        visible={showPolicyModal}
+        onClose={() => setShowPolicyModal(false)}
+      />
     </SafeAreaView>
   );
 };
@@ -430,6 +459,33 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: FONTS.medium,
     color: COLORS.primary,
+  },
+  policyContainer: {
+    marginTop: 8,
+  },
+  policyBadge: {
+    alignSelf: 'flex-start',
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontFamily: FONTS.medium,
+    color: COLORS.black,
+    marginBottom: 12,
+    marginHorizontal: 16,
+  },
+  noResultsContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  noResultsText: {
+    marginTop: 16,
+    marginBottom: 24,
+    fontSize: 16,
+    fontFamily: FONTS.regular,
+    color: COLORS.gray,
+    textAlign: 'center',
   },
 });
 

@@ -34,5 +34,24 @@ export const sampleBusinesses: Tables<'businesses'>[] = [
     is_active: true,
     approval_status: 'pending',
     created_at: new Date().toISOString()
+  },
+  {
+    id: 'business-uuid-4',
+    name: 'Ace Tenis Kulübü',
+    description: 'Profesyonel tenis kortları ve eğitmenlerle kaliteli tenis hizmeti.',
+    phone: '+905559998877',
+    email: 'info@acetenis.com',
+    owner_id: 'user-uuid-4', // Tenis kulübü sahibinin ID'si
+    is_active: true,
+    approval_status: 'approved',
+    created_at: new Date().toISOString(),
+    category: 'Spor Tesisleri',
+    location: {
+      latitude: 40.9876,
+      longitude: 29.1234
+    },
+    address: 'Ataşehir Spor Kompleksi Yanı, Ataşehir/İstanbul',
+    rating: 4.8,
+    distance: 3.2
   }
 ]; 
